@@ -1,0 +1,23 @@
+#!/bin/sh
+if [ "$NIYOM_ALLOW_PUSH" = "1" ]; then
+  exit 0
+fi
+
+if [ "$CLAUDECODE" = "1" ] || [ -n "$CLAUDE_CODE_ENTRYPOINT" ]; then
+  echo "❌ [GIT GUARD]: Claude Code is strictly prohibited from running git push."
+  exit 1
+fi
+
+RANGE="HEAD"
+if git rev-parse --verify origin/main >/dev/null 2>&1; then
+  RANGE="origin/main..HEAD"
+fi
+
+BAD_COMMITS=$(git log $RANGE --pretty=format:"%h %an <%ae>" | grep -v "Shoumik Orgho <orghodutta@gmail.com>" || true)
+if [ -n "$BAD_COMMITS" ]; then
+  echo "❌ [GIT GUARD]: Push rejected! Found commits not authored by Shoumik Orgho <orghodutta@gmail.com>:"
+  echo "$BAD_COMMITS"
+  exit 1
+fi
+
+exit 0
