@@ -46,3 +46,6 @@ next-env.d.ts
 
 # server runtime data store
 /.data/
+
+CLAUDE_MASTER_BRIEF.md
+reviews/
