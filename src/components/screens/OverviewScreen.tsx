@@ -16,7 +16,7 @@ import { Deadline } from "@/components/ui/Deadline";
 import { ActionRowLink, ActionRows, AnimatedNumber, Button, Meter, Skel, buttonClass, withViewTransition } from "@/components/ui/primitives";
 import { Redline } from "@/components/ledger/parts";
 
-const link = "tap font-semibold underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink";
+const link = "font-semibold underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink";
 
 /* ───────────── Hero ───────────── */
 
@@ -88,13 +88,13 @@ function Hero({ intel }: { intel: DossierIntelligence }) {
   return (
     <Bleed data-rail="Start" className="wash">
       <Container className="grid grid-cols-1 items-center gap-x-14 gap-y-6 pb-20 pt-8 lg:min-h-[calc(100svh-var(--bar-h))] lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:pb-24 lg:pt-6">
-        <figure className="order-2 lg:order-1">
+        <figure className="order-2 min-w-0 lg:order-1">
           <NoticeObject notice={intel.notice} float className="max-w-[540px]" />
           <figcaption className="mt-3 text-center text-[15px] italic text-ink-3">
             {shortTitle(intel.notice)} as published: {intel.notice.versions.map((v) => versionTag(v.versionLabel)).join(", ")}
           </figcaption>
         </figure>
-        <div className="order-1 lg:order-2">
+        <div className="order-1 min-w-0 lg:order-2">
           <h1 className="display text-[44px] sm:text-[58px]">Be ready. Not just informed.</h1>
           <p className="mt-5 text-[21px] italic leading-snug text-ink-2 sm:text-[23px]">
             Notices change quietly. NIYOM tells you when a change makes your prepared documents wrong.
@@ -123,7 +123,7 @@ function ActionList({ intel }: { intel: DossierIntelligence }) {
   return (
     <section data-rail="Your next steps" aria-labelledby="action" className="pt-24">
       <Container className="grid grid-cols-1 gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
-        <div>
+        <div className="min-w-0">
           <h2 id="action" className="display text-[34px] sm:text-[40px]">
             Your next steps
           </h2>
@@ -131,7 +131,7 @@ function ActionList({ intel }: { intel: DossierIntelligence }) {
             For {shortTitle(notice)}, as it stands in {tag}.
           </p>
         </div>
-        <div>
+        <div className="min-w-0">
           {!hydrated ? (
             <div className="space-y-4">
               <Skel className="h-6 w-3/4" />
@@ -242,14 +242,14 @@ function NoiseFilter() {
             NIYOM tells them apart, so only the second touches your checklist.
           </p>
         </div>
-        <ol className="mt-14 grid gap-5 md:grid-cols-3">
+        <ol className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-3">
           {rows.map(({ v, prev, consequential, cosmetic, invalidates }) => {
             const active = v.versionNumber === intel.notice.activeVersionNumber;
             return (
               <li
                 key={v.id}
                 className={cn(
-                  "flex flex-col rounded-[var(--r-panel)] p-6 transition-[background-color,box-shadow] duration-500",
+                  "flex min-w-0 flex-col rounded-[var(--r-panel)] p-6 transition-[background-color,box-shadow] duration-500",
                   active ? "bg-white/70 shadow-[0_0_0_1px_rgba(28,27,25,0.08),0_24px_50px_-34px_rgba(28,27,25,0.5)]" : "bg-ink/[0.035]"
                 )}
               >
@@ -324,10 +324,10 @@ function Chapters() {
             className="scroll-mt-[var(--bar-h)] py-24 lg:py-32"
           >
             <Container className="grid grid-cols-1 items-center gap-x-16 gap-y-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,500px)]">
-              <Link href={`/notice/${notice.id}`} onClick={() => setActiveNotice(notice.id)} aria-label={`Open ${shortTitle(notice)}`} className="block">
+              <Link href={`/notice/${notice.id}`} onClick={() => setActiveNotice(notice.id)} aria-label={`Open ${shortTitle(notice)}`} className="block min-w-0">
                 <NoticeObject notice={notice} morph className="max-w-[460px]" />
               </Link>
-              <div>
+              <div className="min-w-0">
                 <p className="text-[16px] italic text-ink-2">{CATEGORY_LABEL[notice.category]}</p>
                 <h2 id={`title-${notice.id}`} className="display mt-2 text-[38px] sm:text-[46px]">
                   {shortTitle(notice)}

@@ -61,7 +61,7 @@ export function AlertsButton({ popoverId = "alerts" }: { popoverId?: string }) {
       <div
         id={popoverId}
         popover="auto"
-        className="pop fixed right-3 top-[calc(var(--bar-h)-6px)] w-[min(420px,calc(100vw-24px))] overflow-hidden rounded-[var(--r-panel)] bg-[#fcfbf8] text-[#1c1b19] shadow-[0_0_0_1px_rgba(28,27,25,0.08),0_24px_60px_-20px_rgba(28,27,25,0.35)] sm:right-6"
+        className="pop fixed right-3 top-[calc(var(--bar-h)-6px)] max-h-[calc(100dvh-var(--bar-h)-16px)] w-[min(420px,calc(100vw-24px))] overflow-y-auto rounded-[var(--r-panel)] bg-[#fcfbf8] text-[#1c1b19] shadow-[0_0_0_1px_rgba(28,27,25,0.08),0_24px_60px_-20px_rgba(28,27,25,0.35)] sm:right-6"
       >
         <div className="flex items-baseline justify-between gap-4 px-5 pb-3 pt-5">
           <p className="text-[19px] font-semibold tracking-[-0.01em]">Changes to notices you follow</p>

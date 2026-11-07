@@ -110,7 +110,7 @@ function WalkthroughButton() {
       <div
         id="walkthrough"
         popover="auto"
-        className="pop fixed right-3 top-[calc(var(--bar-h)-6px)] w-[min(380px,calc(100vw-24px))] rounded-[var(--r-panel)] bg-[#fcfbf8] p-2 text-[#1c1b19] shadow-[0_0_0_1px_rgba(28,27,25,0.08),0_24px_60px_-20px_rgba(28,27,25,0.35)] sm:right-6"
+        className="pop fixed right-3 top-[calc(var(--bar-h)-6px)] max-h-[calc(100dvh-var(--bar-h)-16px)] w-[min(380px,calc(100vw-24px))] overflow-y-auto rounded-[var(--r-panel)] bg-[#fcfbf8] p-2 text-[#1c1b19] shadow-[0_0_0_1px_rgba(28,27,25,0.08),0_24px_60px_-20px_rgba(28,27,25,0.35)] sm:right-6"
       >
         <p className="px-3 pb-1 pt-3 text-[15px] italic text-[#6b655b]">Three steps show what NIYOM does</p>
         <WalkthroughList onDone={() => document.getElementById("walkthrough")?.hidePopover()} />

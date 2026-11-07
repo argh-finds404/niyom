@@ -45,23 +45,27 @@ interface UiState {
 
 let nextToastId = 1;
 
-/** Ephemeral UI state only. Domain state lives in useNiyomStore. */
-export const useUiStore = create<UiState>((set, get) => ({
+const CLOSED_OVERLAYS = {
   inspector: null,
-  apiOpen: false,
-  openInspector: (inspector) => set({ inspector, paletteOpen: false, mobileNavOpen: false }),
-  closeInspector: () => set({ inspector: null }),
-  setApiOpen: (apiOpen) => set({ apiOpen, mobileNavOpen: false }),
+  drawer: null,
   paletteOpen: false,
   helpOpen: false,
-  drawer: null,
+  apiOpen: false,
   mobileNavOpen: false,
+} as const;
+
+/** Ephemeral UI state only. Domain state lives in useNiyomStore. */
+export const useUiStore = create<UiState>((set, get) => ({
+  ...CLOSED_OVERLAYS,
   toasts: [],
-  setPaletteOpen: (paletteOpen) => set({ paletteOpen, mobileNavOpen: false }),
-  setHelpOpen: (helpOpen) => set({ helpOpen, mobileNavOpen: false }),
-  openDrawer: (ctx = {}) => set({ drawer: ctx, paletteOpen: false, mobileNavOpen: false }),
+  openInspector: (inspector) => set({ ...CLOSED_OVERLAYS, inspector }),
+  closeInspector: () => set({ inspector: null }),
+  setApiOpen: (apiOpen) => set(apiOpen ? { ...CLOSED_OVERLAYS, apiOpen: true } : { apiOpen: false }),
+  setPaletteOpen: (paletteOpen) => set(paletteOpen ? { ...CLOSED_OVERLAYS, paletteOpen: true } : { paletteOpen: false }),
+  setHelpOpen: (helpOpen) => set(helpOpen ? { ...CLOSED_OVERLAYS, helpOpen: true } : { helpOpen: false }),
+  openDrawer: (ctx = {}) => set({ ...CLOSED_OVERLAYS, drawer: ctx }),
   closeDrawer: () => set({ drawer: null }),
-  setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
+  setMobileNavOpen: (mobileNavOpen) => set(mobileNavOpen ? { ...CLOSED_OVERLAYS, mobileNavOpen: true } : { mobileNavOpen: false }),
   toast: (t) => set({ toasts: [...get().toasts.slice(-2), { ...t, id: nextToastId++ }] }),
   dismissToast: (id) => {
     const t = get().toasts.find((x) => x.id === id);

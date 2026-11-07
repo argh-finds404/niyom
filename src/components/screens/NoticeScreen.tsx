@@ -112,7 +112,7 @@ export function NoticeScreen({ id }: { id: string }) {
   return (
     <Page chapter={chapterOf(notice.id)}>
       <div className="grid grid-cols-1 gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-[calc(var(--bar-h)+24px)] lg:self-start">
+        <aside className="lg:sticky lg:top-[calc(var(--bar-h)+24px)] lg:max-h-[calc(100dvh-var(--bar-h)-48px)] lg:overflow-y-auto lg:self-start">
           <NoticeObject notice={notice} morph scrollTurn={false} className="max-w-[260px] lg:max-w-none" />
           <div className="mt-4">
             <VersionList noticeId={notice.id} />

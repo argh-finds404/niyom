@@ -295,6 +295,8 @@ export function Check({
 
 /* ───────────────────────── Overlay (native dialog, animated both ways) ───────────────────────── */
 
+let activeOverlayLocks = 0;
+
 export function Overlay({
   open,
   onClose,
@@ -342,10 +344,13 @@ export function Overlay({
 
   useEffect(() => {
     if (!open) return;
-    const prev = document.documentElement.style.overflow;
+    activeOverlayLocks += 1;
     document.documentElement.style.overflow = "hidden";
     return () => {
-      document.documentElement.style.overflow = prev;
+      activeOverlayLocks = Math.max(0, activeOverlayLocks - 1);
+      if (activeOverlayLocks === 0) {
+        document.documentElement.style.overflow = "";
+      }
     };
   }, [open]);
 
