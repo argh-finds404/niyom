@@ -167,15 +167,26 @@ export function TopBar() {
   return (
     <header
       className={cn(
-        // Always opaque: content must never show through the bar while scrolling.
-        "sticky top-0 z-50 -ml-[var(--rail-w)] bg-ground pl-[var(--rail-w)] transition-[background-color,box-shadow] duration-500 print:hidden",
-        scrolled && "shadow-[0_1px_0_color-mix(in_srgb,var(--ink)_12%,transparent),0_10px_24px_-20px_rgba(28,27,25,0.35)]"
+        // A full bar at the top of the page; once you scroll it tucks into a floating pill. Its height never
+        // changes, so nothing below it moves, and the strip around the pill lets clicks through.
+        "sticky top-0 z-50 -ml-[var(--rail-w)] h-[var(--bar-h)] pl-[var(--rail-w)] transition-colors duration-500 print:hidden",
+        scrolled ? "pointer-events-none bg-transparent" : "bg-ground"
       )}
     >
-      <div className="mx-auto flex h-[var(--bar-h)] max-w-[1240px] items-center gap-6 pl-3 pr-4 sm:px-8 lg:px-10">
+      <div
+        className={cn(
+          "pointer-events-auto mx-auto flex items-center gap-6 transition-[max-width,height,margin,border-radius,background-color,box-shadow,padding] duration-500 ease-spring",
+          scrolled
+            ? "mx-2 mt-[7px] h-[calc(var(--bar-h)-14px)] max-w-[1180px] rounded-full bg-ground/85 pl-3 pr-2 shadow-[0_0_0_1px_color-mix(in_srgb,var(--ink)_10%,transparent),0_14px_34px_-18px_rgba(28,27,25,0.4)] backdrop-blur-xl backdrop-saturate-150 sm:mx-4 sm:pl-5 sm:pr-3 xl:mx-auto"
+            : "h-full max-w-[1240px] rounded-none pl-3 pr-4 sm:px-8 lg:px-10"
+        )}
+      >
         <Link href="/" aria-label="NIYOM overview" className="flex flex-none items-center gap-2.5">
           <Mark draw className="h-8 w-8" />
           <span className="text-[15.5px] font-semibold tracking-[0.16em]">NIYOM</span>
+          <span aria-hidden className="hidden border-l border-ink/20 pl-2.5 font-bengali text-[15px] leading-none text-ink-3 sm:inline">
+            নিয়ম
+          </span>
         </Link>
         <nav aria-label="Primary" className="ml-auto hidden items-center gap-0.5 lg:flex">
           {nav.map((n) => (
@@ -313,9 +324,13 @@ function SyncStatus() {
   const at = useNiyomStore((s) => s.lastSyncedAt);
   const time = at ? new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
   return (
-    <p className="mt-4" role="status" aria-live="polite">
+    <p className="flex items-baseline gap-2.5" role="status" aria-live="polite">
+      <span
+        aria-hidden
+        className={cn("h-2 w-2 flex-none translate-y-[-1px] rounded-full", status === "online" ? "bg-[#7fc49a]" : status === "offline" ? "bg-[#e0a84f]" : "bg-current opacity-40")}
+      />
       {status === "online"
-        ? `Your checklist is saved on this device and backed up to the NIYOM server${time ? `, last at ${time}` : ""}.`
+        ? `Saved on this device and backed up to the NIYOM server${time ? `, last at ${time}` : ""}.`
         : status === "offline"
           ? "Offline. Your changes are saved on this device and will be sent when the connection returns."
           : "Connecting to the NIYOM server…"}
@@ -323,39 +338,102 @@ function SyncStatus() {
   );
 }
 
+const FOOT_LINK = "tap text-cover-ink/80 transition-colors hover:text-cover-ink";
+
+/** The colophon: the promise, every way back in, where your work is, and the name, large. */
 export function Footer() {
   const setApiOpen = useUiStore((s) => s.setApiOpen);
   const setHelpOpen = useUiStore((s) => s.setHelpOpen);
-  const status = useNiyomStore((s) => s.backendStatus);
+  const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
+  const openDrawer = useUiStore((s) => s.openDrawer);
+  const activeNoticeId = useNiyomStore((s) => s.activeNoticeId);
+  const setActiveNotice = useNiyomStore((s) => s.setActiveNotice);
+  const hydrated = useNiyomStore((s) => s.isHydrated);
+  const all = useAllIntelligence();
+
   return (
-    <footer className="print:hidden">
-      <div className="mx-auto grid max-w-[1240px] gap-10 px-5 pb-12 pt-20 sm:px-8 md:grid-cols-[1fr_auto] lg:px-10">
-        <div>
-          <p className="flex items-center gap-4">
-            <Mark className="h-14 w-14" />
-            <span className="text-[44px] font-semibold leading-none tracking-[0.14em] sm:text-[56px]">NIYOM</span>
-          </p>
-          <p className="mt-4 text-[21px] italic text-ink-2">
-            Be ready. Not just informed. <span className="font-bengali not-italic text-ink-3">নিয়ম</span>
+    <footer className="-ml-[var(--rail-w)] overflow-hidden bg-cover pl-[var(--rail-w)] text-cover-ink transition-colors duration-700 print:hidden">
+      <div className="mx-auto max-w-[1240px] px-4 pt-12 sm:px-8 sm:pt-24 lg:px-10">
+        <div className="grid grid-cols-1 gap-x-16 gap-y-7 sm:gap-y-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
+          <div>
+            <p className="display max-w-[16ch] text-[30px] sm:text-[52px]">Be ready. Not just informed.</p>
+            <p className="mt-5 hidden max-w-[46ch] text-[18px] leading-relaxed text-cover-ink/75 sm:block">
+              NIYOM keeps every version of a notice and tells you when a change makes the papers you already prepared wrong.
+            </p>
+          </div>
+
+          <nav aria-label="Footer" className="grid grid-cols-2 gap-x-8 gap-y-7 text-[16px] sm:grid-cols-3 sm:gap-y-10">
+            <div className="col-span-2 sm:col-span-1">
+              <p className="text-[15px] italic text-cover-ink/60">Dossiers</p>
+              <ul className="mt-2.5 space-y-1.5 sm:mt-3 sm:space-y-2.5">
+                {all.map(({ notice, readinessSummary: s }) => (
+                  <li key={notice.id}>
+                    <Link href={`/notice/${notice.id}`} onClick={() => setActiveNotice(notice.id)} className={cn(FOOT_LINK, "flex items-baseline justify-between gap-3")}>
+                      <span>{shortTitle(notice)}</span>
+                      <span className="num flex-none text-[14px] text-cover-ink/55">{hydrated ? `${s.percentage}%` : ""}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="text-[15px] italic text-cover-ink/60">Pages</p>
+              <ul className="mt-2.5 space-y-1.5 sm:mt-3 sm:space-y-2.5">
+                {[
+                  ["/", "Overview"],
+                  ["/explore", "Directory"],
+                  [`/changes/${activeNoticeId}`, "What changed"],
+                  ["/my-plan", "My plan"],
+                ].map(([href, label]) => (
+                  <li key={label}>
+                    <Link href={href} className={FOOT_LINK}>
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="text-[15px] italic text-cover-ink/60">Tools</p>
+              <ul className="mt-2.5 space-y-1.5 sm:mt-3 sm:space-y-2.5">
+                <li>
+                  <button type="button" onClick={() => setPaletteOpen(true)} className={FOOT_LINK}>
+                    Search <span className="text-[13.5px] text-cover-ink/50">Ctrl K</span>
+                  </button>
+                </li>
+                <li>
+                  <button type="button" onClick={() => openDrawer({ noticeId: activeNoticeId })} className={FOOT_LINK}>
+                    Report a change
+                  </button>
+                </li>
+                <li>
+                  <button type="button" onClick={() => setHelpOpen(true)} className={FOOT_LINK}>
+                    How NIYOM works
+                  </button>
+                </li>
+                <li>
+                  <button type="button" onClick={() => setApiOpen(true)} className={FOOT_LINK}>
+                    Live API
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </nav>
+        </div>
+
+        <div className="mt-7 grid grid-cols-1 gap-x-16 gap-y-3 border-t sm:mt-16 border-current/15 pt-6 text-[14.5px] leading-relaxed text-cover-ink/65 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
+          <SyncStatus />
+          <p>
+            The dossiers, offices and lead times are sample cases modelled on published notices. NIYOM is not affiliated with any
+            institution named; always confirm with the issuing office before you submit.
           </p>
         </div>
-        <div className="max-w-[44ch] self-end text-[15px] leading-relaxed text-ink-3 md:text-right">
-          <p className="flex flex-wrap gap-x-4 gap-y-1 md:justify-end">
-            <button type="button" onClick={() => setApiOpen(true)} className="tap inline-flex items-center gap-2 text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink">
-              <span
-                aria-hidden
-                className={cn("h-2 w-2 rounded-full", status === "online" ? "bg-ok" : status === "offline" ? "bg-warn" : "bg-ink-3")}
-              />
-              Live API
-            </button>
-            <button type="button" onClick={() => setHelpOpen(true)} className="tap text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink">
-              How NIYOM works
-            </button>
-          </p>
-          <SyncStatus />
-          <p className="mt-1">
-            The dossiers are sample cases modelled on published notices. NIYOM is not affiliated with any institution named; always confirm with
-            the issuing office before you submit.
+
+        {/* The name, set large and cut by the bottom edge, so the whole footer fits on one screen. */}
+        <div aria-hidden className="mt-7 h-[clamp(46px,12vw,164px)] select-none overflow-hidden sm:mt-16">
+          <p className="flex items-start justify-between gap-4 leading-none">
+            <span className="text-[clamp(56px,14.6vw,200px)] font-semibold tracking-[0.06em]">NIYOM</span>
+            <span className="font-bengali mt-[0.12em] text-[clamp(26px,6vw,84px)] leading-none text-cover-ink/55">নিয়ম</span>
           </p>
         </div>
       </div>

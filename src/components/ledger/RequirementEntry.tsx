@@ -102,9 +102,9 @@ export function RequirementEntry({
             {exempt ? ", not for your profile" : review ? ", depends on a field you have not filled" : ""}
             {hydrated && done && <span className="text-ok">, checked against {tag}</span>}
           </span>
-          {!exempt && officeMeta.leadDays > 0 && (
+          {!exempt && officeMeta.office && officeMeta.leadDays > 0 && (
             <span className="num">
-              · {officeMeta.office} (~{officeMeta.leadDays}d)
+              , {officeMeta.office}, about {officeMeta.leadDays} working day{officeMeta.leadDays === 1 ? "" : "s"}
             </span>
           )}
           {hydrated && item.evidenceNote && (

@@ -7,7 +7,7 @@ import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
 import { useScenarios } from "@/hooks/useScenarios";
 import { versionOf } from "@/hooks/useDossierIntelligence";
-import { CATEGORY_LABEL, shortTitle, versionTag } from "@/lib/format";
+import { CATEGORY_LABEL, plural, shortTitle, versionTag } from "@/lib/format";
 import { Overlay } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
@@ -260,7 +260,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       <div className="flex items-center gap-5 border-t border-[#1c1b19]/15 px-5 py-2.5 text-[14px] italic text-[#6b655b]">
         <span>↑ ↓ to move</span>
         <span>Enter to open</span>
-        <span className="num ml-auto not-italic">{results.length} results</span>
+        <span className="num ml-auto not-italic">{plural(results.length, "result")}</span>
       </div>
     </div>
   );

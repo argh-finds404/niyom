@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Check as CheckIcon, Plus } from "lucide-react";
+import { Check as CheckIcon, FileText, GitCompareArrows, MessageSquareText, Plus, Scale } from "lucide-react";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
 import { useWatchStore } from "@/hooks/useWatchStore";
@@ -102,18 +102,19 @@ export function NoticeScreen({ id }: { id: string }) {
   const consequential = versionChanges.filter(isConsequential).length;
   const dossierReports = communityReports.filter((r) => r.noticeId === notice.id);
 
-  const layers: [string, number, boolean][] = [
-    ["official requirements", activeVersion.requirements.length, false],
-    [`changes since ${baselineTag}`, consequential, false],
-    ["source conflicts", s.conflictCount, s.conflictCount > 0],
-    ["field reports", s.communityReportCount, false],
+  const layers: [string, number, boolean, typeof FileText][] = [
+    ["official requirements", activeVersion.requirements.length, false, FileText],
+    [`changes since ${baselineTag}`, consequential, false, GitCompareArrows],
+    ["source conflicts", s.conflictCount, s.conflictCount > 0, Scale],
+    ["field reports", s.communityReportCount, false, MessageSquareText],
   ];
 
   return (
     <Page chapter={chapterOf(notice.id)}>
-      <div className="grid grid-cols-1 gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-[calc(var(--bar-h)+24px)] lg:max-h-[calc(100dvh-var(--bar-h)-48px)] lg:overflow-y-auto lg:self-start">
-          <NoticeObject notice={notice} morph scrollTurn={false} className="max-w-[260px] lg:max-w-none" />
+      <div className="grid grid-cols-1 gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+        {/* The book stays pinned while you read, as on a Stripe Press book page; nothing here clips its 3D. */}
+        <aside className="lg:sticky lg:top-[calc(var(--bar-h)+24px)] lg:self-start">
+          <NoticeObject notice={notice} morph open="view" pinned className="max-w-[300px] lg:max-w-none" />
           <div className="mt-4">
             <VersionList noticeId={notice.id} />
           </div>
@@ -131,10 +132,13 @@ export function NoticeScreen({ id }: { id: string }) {
             <p className="mt-6 max-w-[64ch] text-[17px] leading-relaxed text-ink-2">{notice.systemCaveat}</p>
 
             <dl className="mt-10 grid grid-cols-2 gap-x-6 gap-y-6 rounded-[var(--r-panel)] bg-ink/[0.04] p-6 sm:grid-cols-4">
-              {layers.map(([label, n, alarm]) => (
+              {layers.map(([label, n, alarm, Icon]) => (
                 <div key={label} className="flex flex-col">
                   <dt className="mt-1 text-[15px] italic leading-snug text-ink-2">{label}</dt>
-                  <dd className={cn("display num order-first text-[38px] leading-none", alarm && "text-crit")}>{n}</dd>
+                  <dd className={cn("order-first flex items-center gap-2.5", alarm && "text-crit")}>
+                    <Icon aria-hidden className="h-5 w-5 opacity-60" />
+                    <span className="display num text-[38px] leading-none">{n}</span>
+                  </dd>
                 </div>
               ))}
             </dl>

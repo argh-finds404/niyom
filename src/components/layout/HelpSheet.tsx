@@ -22,6 +22,10 @@ const STEPS: [string, string][] = [
     "The bell shows each revision of a notice you follow, how many changes matter, and which of your checks it made stale. Deadlines can go straight into your calendar.",
   ],
   [
+    "It tells you when to start.",
+    "Papers take working days at the offices that issue them, and offices close on Friday and Saturday. My plan adds this up into the latest safe start date. A short note on each item, such as a receipt number, prints on your readiness slip.",
+  ],
+  [
     "Official text, conflicts and field reports stay apart.",
     "When two official sources disagree, both are quoted. What applicants report from counters is shown separately and never rewrites policy.",
   ],

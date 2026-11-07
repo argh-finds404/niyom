@@ -7,7 +7,8 @@ import { useUiStore } from "@/hooks/useUiStore";
 import { cn } from "@/lib/utils";
 
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-const TICK = 13; // resting tick width, px
+const TICK = 46; // full tick length, px; ticks rest at a fraction of it and swell around where you are
+const REST = 0.4;
 
 interface SectionMetric {
   top: number;
@@ -18,14 +19,16 @@ interface CoverBandMetric {
   top: number;
   bottom: number;
   ink: string;
+  bg: string;
 }
 
 /**
- * The page rail, after the reference: one tick per section of the page you are reading.
+ * The page rail, after the Stripe Press reference: one long tick per section of the page.
  * Sections opt in with `data-rail="Label"`.
- *  - a single indicator slides to the section under the reading line and grows as you read it;
- *  - ticks swell under the pointer like a dock;
- *  - hovering the rail fans out every section's title as a contents list;
+ *  - the ticks swell around where you are reading, so the column breathes as you scroll;
+ *  - under the pointer they swell around the pointer instead, like a dock;
+ *  - the current section's line is bold, and its name appears beside it when you enter it,
+ *    or beside whichever line you point at;
  *  - the rail takes the ink colour of whatever lies beneath it.
  *
  * Scroll and pointer motion run against cached geometry in an animation-frame loop with zero
@@ -45,13 +48,28 @@ export function Rail() {
   const metrics = useRef<SectionMetric[]>([]);
   const covers = useRef<CoverBandMetric[]>([]);
   const baseInk = useRef<string>("");
+  const baseBg = useRef<string>("");
   const maxScroll = useRef<number>(0);
   const activeRef = useRef<number>(0);
   const lastProgress = useRef<number>(-1);
   const lastInk = useRef<string>("");
   const [labels, setLabels] = useState<string[]>([]);
   const [active, setActive] = useState(0);
-  const [open, setOpen] = useState(false);
+  const [hover, setHover] = useState<number | null>(null);
+  const [flash, setFlash] = useState(false);
+  const pointerIn = useRef(false);
+  const [bg, setBg] = useState("");
+
+  /** Lengthen the ticks around a position (in ticks; 2.5 is the middle of the third), on the compositor. */
+  const swell = (at: number) => {
+    ticks.current.forEach((t, i) => {
+      if (!t) return;
+      const d = i + 0.5 - at;
+      const k = Math.exp(-(d * d) / 1.7);
+      t.style.transform = `scaleX(${(REST + (1 - REST) * k).toFixed(3)})`;
+      t.style.opacity = (0.3 + 0.6 * k).toFixed(3);
+    });
+  };
 
   // Discover sections. Next keeps visited pages mounted but hidden, so count only what is rendered.
   useEffect(() => {
@@ -85,18 +103,16 @@ export function Rail() {
         const r = el.getBoundingClientRect();
         return { top: r.top + sy, height: Math.max(1, r.height) };
       });
-      const coverEls = [...document.querySelectorAll<HTMLElement>("#main section[data-cover], #main [data-rail][data-cover]")].filter(
+      const coverEls = [...document.querySelectorAll<HTMLElement>("#main section[data-cover], #main [data-rail][data-cover], footer")].filter(
         (e) => e.getClientRects().length > 0
       );
       covers.current = coverEls.map((el) => {
         const r = el.getBoundingClientRect();
-        return {
-          top: r.top + sy,
-          bottom: r.bottom + sy,
-          ink: getComputedStyle(el).color,
-        };
+        const cs = getComputedStyle(el);
+        return { top: r.top + sy, bottom: r.bottom + sy, ink: cs.color, bg: cs.backgroundColor };
       });
       baseInk.current = getComputedStyle(document.documentElement).color;
+      baseBg.current = getComputedStyle(document.body).backgroundColor;
       maxScroll.current = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
     };
 
@@ -125,22 +141,27 @@ export function Rail() {
       if (Math.abs(progress - lastProgress.current) >= 0.004) {
         lastProgress.current = progress;
         indicator.current?.style.setProperty("--p", progress.toFixed(3));
+        // The ticks swell around the reading position; it travels down the column as you scroll.
+        if (!pointerIn.current) swell(idx + progress);
       }
 
       const nav = rail.current;
       if (nav) {
         const mid = sy + vh * 0.5;
         let nextInk = baseInk.current;
+        let nextBg = baseBg.current;
         for (let i = 0; i < covers.current.length; i++) {
           const c = covers.current[i];
           if (mid >= c.top && mid <= c.bottom) {
             nextInk = c.ink;
+            nextBg = c.bg;
             break;
           }
         }
         if (nextInk && nextInk !== lastInk.current) {
           lastInk.current = nextInk;
           nav.style.setProperty("--rail-ink", nextInk);
+          setBg(nextBg);
         }
       }
     };
@@ -177,10 +198,22 @@ export function Rail() {
     const ind = indicator.current;
     const li = b?.parentElement;
     if (!b || !ind || !li) return;
-    // The tick's centre, measured from the top of the list (each <li> is the button's offset parent).
-    ind.style.transform = `translate3d(-50%, ${li.offsetTop + b.offsetHeight / 2 - 1}px, 0)`;
+    ind.style.transform = `translate3d(0, ${li.offsetTop + b.offsetHeight / 2 - 1.5}px, 0)`;
     ind.style.opacity = "1";
+    // The first scroll pass runs before the ticks exist; swell them once they do.
+    if (!pointerIn.current) swell(active + Math.max(0, lastProgress.current));
   }, [active, labels]);
+
+  // Entering a section shows its name beside its line for a moment.
+  useEffect(() => {
+    if (!labels.length) return;
+    const show = window.setTimeout(() => setFlash(true), 0);
+    const hide = window.setTimeout(() => setFlash(false), 1900);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(hide);
+    };
+  }, [active, labels.length]);
 
   // Cache tick centres on pointer enter so pointermove never forces layout reads.
   const cacheTickCenters = () => {
@@ -191,78 +224,67 @@ export function Rail() {
     });
   };
 
-  // Dock-style swell under the pointer.
+  // Under the pointer the swell follows the pointer, and the nearest line shows its name.
   const onMove = (e: React.PointerEvent) => {
-    if (e.pointerType !== "mouse" || reduced()) return;
+    if (e.pointerType !== "mouse") return;
     if (tickCenters.current.length !== ticks.current.length) cacheTickCenters();
-    ticks.current.forEach((t, i) => {
-      if (!t) return;
-      const center = tickCenters.current[i] ?? 0;
-      const d = Math.abs(e.clientY - center);
-      const k = Math.max(0, 1 - d / 64);
-      t.style.width = `${TICK + 9 * k}px`;
-      t.style.opacity = String(0.32 + 0.5 * k);
-    });
+    const c = tickCenters.current;
+    if (!c.length) return;
+    let near = 0;
+    for (let i = 1; i < c.length; i++) if (Math.abs(e.clientY - c[i]) < Math.abs(e.clientY - c[near])) near = i;
+    if (near !== hover) setHover(near);
+    if (reduced()) return;
+    const step = c.length > 1 ? (c[c.length - 1] - c[0]) / (c.length - 1) : 1;
+    swell((e.clientY - c[0]) / step + 0.5);
   };
   const onLeave = () => {
-    setOpen(false);
-    ticks.current.forEach((t) => {
-      if (!t) return;
-      t.style.width = "";
-      t.style.opacity = "";
-    });
+    pointerIn.current = false;
+    setHover(null);
+    swell(activeRef.current + Math.max(0, lastProgress.current));
   };
 
   const jump = (i: number) => {
     els.current[i]?.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
-    setOpen(false);
   };
+
+  const named = hover ?? (flash ? active : null);
 
   return (
     <nav
       ref={rail}
       aria-label="Sections on this page"
       onPointerLeave={onLeave}
-      className="pointer-events-none fixed inset-y-0 left-0 z-40 hidden w-[var(--rail-w)] sm:flex flex-col items-center pt-[var(--bar-h)] text-[var(--rail-ink,var(--ink))] transition-colors duration-500 print:hidden"
+      className="pointer-events-none fixed inset-y-0 left-0 z-40 hidden w-[var(--rail-w)] sm:flex flex-col pt-[var(--bar-h)] text-[var(--rail-ink,var(--ink))] transition-colors duration-500 print:hidden"
     >
-      <div className="flex flex-1 flex-col items-center justify-center">
+      <div className="flex flex-1 flex-col justify-center pl-[9px] lg:pl-[12px]">
         {pathname !== "/" && (
           <button
             type="button"
             onClick={() => (history.length > 1 ? router.back() : router.push("/"))}
             aria-label="Back"
-            className="pointer-events-auto mb-4 hidden h-9 w-9 place-items-center rounded-[var(--r-control)] transition-[background-color,transform] duration-300 hover:-translate-x-0.5 hover:bg-current/[0.08] lg:grid"
+            className="pointer-events-auto mb-5 hidden h-9 w-9 -translate-x-1.5 place-items-center rounded-[var(--r-control)] transition-[background-color,transform] duration-300 hover:-translate-x-2.5 hover:bg-current/[0.08] lg:grid"
           >
-            <ArrowLeft className="h-[18px] w-[18px]" />
+            <ArrowLeft className="h-[20px] w-[20px]" />
           </button>
         )}
 
         <div
-          className="pointer-events-auto relative"
+          className="pointer-events-auto relative w-max"
           onPointerEnter={(e) => {
             if (e.pointerType === "mouse") {
+              pointerIn.current = true;
               cacheTickCenters();
-              setOpen(true);
             }
           }}
           onPointerMove={onMove}
-          onFocus={() => setOpen(true)}
-          onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setOpen(false)}
+          onFocus={() => setFlash(true)}
         >
-          {/* The contents list that fans out on hover, as in the reference. */}
-          <div
-            aria-hidden
-            className={cn(
-              "pointer-events-none absolute -inset-y-3 left-[calc(100%-4px)] hidden w-max min-w-[220px] rounded-[var(--r-card)] bg-[#fcfbf8]/96 shadow-[0_0_0_1px_rgba(28,27,25,0.07),0_24px_50px_-24px_rgba(28,27,25,0.45)] transition-[opacity,transform] duration-300 ease-out sm:block",
-              open && labels.length ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0"
-            )}
-          />
           <span
             ref={indicator}
             aria-hidden
-            className="pointer-events-none absolute left-1/2 top-0 z-10 h-[2.5px] w-[calc(15px_+_11px*var(--p,0))] rounded-full bg-current opacity-0 transition-[transform,opacity] duration-[650ms] ease-spring will-change-transform motion-reduce:transition-none"
+            className="pointer-events-none absolute left-0 top-0 z-10 h-[3px] w-[calc(30px_+_16px*var(--p,0))] rounded-full bg-current opacity-0 transition-[transform,opacity] duration-[650ms] ease-spring will-change-transform motion-reduce:transition-none"
           />
-          <ol key={pathname} className="relative flex flex-col items-center">
+          <ol key={pathname} className="relative flex flex-col">
             {labels.map((label, i) => {
               const on = i === active;
               return (
@@ -273,33 +295,36 @@ export function Rail() {
                     }}
                     type="button"
                     onClick={() => jump(i)}
+                    onFocus={() => setHover(i)}
+                    onBlur={() => setHover(null)}
                     aria-label={label}
                     aria-current={on ? "location" : undefined}
-                    className="group flex h-[22px] w-[var(--rail-w)] items-center justify-center lg:h-[26px] pointer-coarse:h-[34px]"
+                    className="group flex h-[17px] items-center lg:h-[19px] pointer-coarse:h-[30px]"
+                    style={{ width: TICK + 4 }}
                   >
                     <span
                       ref={(el) => {
                         ticks.current[i] = el;
                       }}
                       aria-hidden
-                      className="tick-in block h-[2px] rounded-full bg-current opacity-[0.32] transition-[width,opacity] duration-300 ease-out"
-                      style={{ width: TICK, animationDelay: `${160 + i * 55}ms` }}
+                      className={cn(
+                        "tick-in block h-[2px] origin-left rounded-full bg-current transition-[transform,opacity] duration-500 ease-spring",
+                        on && "h-[2.5px]"
+                      )}
+                      style={{ width: TICK, transform: `scaleX(${REST})`, opacity: 0.3, animationDelay: `${160 + i * 45}ms` }}
                     />
                   </button>
-                  <button
-                    type="button"
-                    tabIndex={-1}
+                  {/* Its name, beside its line: when you point at it, or for a moment after you enter it. */}
+                  <span
                     aria-hidden
-                    onClick={() => jump(i)}
                     className={cn(
-                      "absolute left-[calc(100%+10px)] top-1/2 hidden -translate-y-1/2 whitespace-nowrap py-0.5 pr-4 text-left text-[15px] leading-tight text-[#1c1b19] transition-[opacity,transform] duration-300 ease-out sm:block",
-                      on ? "font-semibold" : "text-[#47433c] hover:text-[#1c1b19]",
-                      open ? "pointer-events-auto translate-x-0 opacity-100" : "pointer-events-none -translate-x-1.5 opacity-0"
+                      "pointer-events-none absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-[6px] px-2 py-0.5 text-[16px] font-semibold leading-tight transition-[opacity,transform] duration-300 ease-out",
+                      named === i ? "translate-x-0 opacity-100" : "-translate-x-1.5 opacity-0"
                     )}
-                    style={{ transitionDelay: open ? `${i * 30}ms` : "0ms" }}
+                    style={{ background: bg ? `color-mix(in srgb, ${bg} 88%, transparent)` : undefined }}
                   >
                     {label}
-                  </button>
+                  </span>
                 </li>
               );
             })}
@@ -307,7 +332,7 @@ export function Rail() {
         </div>
       </div>
 
-      <div className="pointer-events-auto mb-4 hidden lg:block">
+      <div className="pointer-events-auto mb-4 hidden pl-[12px] lg:block">
         <button
           type="button"
           onClick={() => setHelpOpen(true)}

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { LayoutList, Search, Table2, X } from "lucide-react";
+import { LayoutList, MessageSquareText, Scale, Search, Table2, X } from "lucide-react";
+import { PaperRow, VersionTrack } from "@/components/ui/Visuals";
 import type { DossierCategory } from "@/domain/types";
 import { compareNoticeVersions } from "@/domain";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
@@ -91,7 +92,7 @@ export function ExploreScreen() {
     () => [
       {
         id: "title",
-        header: "Dossier & Institution",
+        header: "Dossier",
         sortValue: (r) => shortTitle(r.intel.notice),
         cell: (r) => (
           <div>
@@ -108,7 +109,7 @@ export function ExploreScreen() {
       },
       {
         id: "version",
-        header: "Active Version",
+        header: "Version",
         sortValue: (r) => r.intel.activeVersion.versionNumber,
         cell: (r) => <Stamp tone="plain">{versionTag(r.intel.activeVersion.versionLabel)}</Stamp>,
       },
@@ -136,7 +137,7 @@ export function ExploreScreen() {
       },
       {
         id: "reports",
-        header: "Field Reports",
+        header: "Field reports",
         align: "right",
         sortValue: (r) => r.intel.readinessSummary.communityReportCount,
         cell: (r) => <span className="text-ink-2">{r.intel.readinessSummary.communityReportCount}</span>,
@@ -364,15 +365,31 @@ export function ExploreScreen() {
                       ))}
                     </p>
                   )}
-                  <p className="num mt-5 flex flex-wrap gap-x-5 gap-y-1 text-[16px] text-ink-2">
-                    <span>{plural(notice.versions.length, "version")}</span>
-                    <span className={cn(changes && "text-crit")}>{plural(changes, "consequential change")}</span>
-                    <span className={cn(s.conflictCount && "text-crit")}>{plural(s.conflictCount, "source conflict")}</span>
-                    <span>{plural(s.communityReportCount, "field report")}</span>
-                    <span className="text-ink">
-                      {hydrated ? `${s.percentage}% ready` : <Skel className="h-4 w-16" />}
-                    </span>
-                  </p>
+                  <div className="mt-6 flex items-center gap-6">
+                    <VersionTrack notice={notice} showDates={false} className="min-w-0 max-w-[360px] flex-1 text-ink-2" />
+                    {hydrated ? (
+                      <div className="flex-none">
+                        <p className="display num text-[26px] leading-none">{s.percentage}%</p>
+                        <PaperRow items={s.items.filter((i) => i.requirement.mandatory && i.applicability === "APPLIES").map((i) => ({ id: i.requirement.id, title: i.requirement.title, status: i.readinessStatus }))} className="mt-1.5" size={0.9} />
+                      </div>
+                    ) : (
+                      <Skel className="h-12 w-20" />
+                    )}
+                  </div>
+                  {(s.conflictCount > 0 || s.communityReportCount > 0) && (
+                    <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-[15.5px] text-ink-2">
+                      {s.conflictCount > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-crit">
+                          <Scale aria-hidden className="h-4 w-4" /> {s.conflictCount === 1 ? "Sources disagree on one rule" : `Sources disagree on ${s.conflictCount} rules`}
+                        </span>
+                      )}
+                      {s.communityReportCount > 0 && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <MessageSquareText aria-hidden className="h-4 w-4" /> {plural(s.communityReportCount, "field report")}
+                        </span>
+                      )}
+                    </p>
+                  )}
                   <p className="mt-2 text-[14.5px] italic text-ink-3">
                     {FRESHNESS_LABEL[freshest.freshness]}, <span className="num">{formatDate(freshest.lastReviewedAt)}</span>
                   </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { findCrossDossierLinksForRequirement, getRequirementOfficeMeta } from "@/domain";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
@@ -42,14 +42,17 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
   const [draftNote, setDraftNote] = useState(item?.evidenceNote ?? "");
   const { debouncedValue: debouncedNote, isPending: isSavingNote } = useDebouncedValue(draftNote, 450);
 
-  // Live debounced auto-save when the user pauses typing in the evidence memo field.
+  // Saves the note when typing pauses, and once more if the panel closes mid-sentence.
+  const pendingSave = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!intel || !item) return;
-    const saved = item.evidenceNote ?? "";
-    const next = debouncedNote.trim();
-    if (next === saved) return;
-    updateNote(intel.notice.id, item.requirement, intel.activeVersion.versionNumber, next);
-  }, [debouncedNote, intel, item, updateNote]);
+    const save = (text: string) => {
+      if (text.trim() !== (item.evidenceNote ?? "")) updateNote(intel.notice.id, item.requirement, intel.activeVersion.versionNumber, text.trim());
+    };
+    save(debouncedNote);
+    pendingSave.current = () => save(draftNote);
+  }, [debouncedNote, draftNote, intel, item, updateNote]);
+  useEffect(() => () => pendingSave.current?.(), []);
 
   if (!intel || !item) {
     return (
@@ -74,11 +77,6 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
   const saveMemo = (value: string) => {
     setDraftNote(value);
     updateNote(notice.id, r, activeVersion.versionNumber, value);
-    toast({
-      tone: "ok",
-      title: value.trim() ? "Evidence memo saved" : "Evidence memo cleared",
-      body: value.trim() ? `Recorded for ${r.code} (${tag}).` : `Cleared memo on ${r.code}.`,
-    });
   };
 
   return (
@@ -104,12 +102,13 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
       <div className="min-h-0 flex-1 overflow-y-auto px-7 pb-10">
         <Section title="What the notice requires">
           <p className="text-[19px] leading-relaxed">{r.value}</p>
-          <p className="mt-3 text-[15px] text-ink-2 num">
-            Counter: <strong className="font-semibold text-ink">{officeMeta.office}</strong> · Stage {officeMeta.stage} ({officeMeta.stageLabel}) ·{" "}
-            {officeMeta.leadDays === 0
-              ? "Same-day / digital check"
-              : `~${officeMeta.leadDays} working day${officeMeta.leadDays === 1 ? "" : "s"} (Sun–Thu)`}
-          </p>
+          {officeMeta.office && (r.category === "document" || r.category === "procedure") && (
+            <p className="mt-3 text-[16px] text-ink-2">
+              From <span className="font-semibold text-ink">{officeMeta.office}</span>,{" "}
+              {officeMeta.leadDays === 0 ? "on the same day" : `about ${officeMeta.leadDays} working day${officeMeta.leadDays === 1 ? "" : "s"}`}. Offices open
+              Sunday to Thursday.
+            </p>
+          )}
           {r.category === "deadline" && <Deadline notice={notice} className="mt-4" />}
         </Section>
 
@@ -160,105 +159,80 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
           </p>
         </Section>
 
-        <Section title="Your evidence memo (printed on readiness slip)">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[15px] leading-relaxed text-ink-2">
-              Record your certificate serial, attestation register number, or payment TrxID so you know which physical paper in your folder satisfies{" "}
-              <span className="font-medium text-ink">{r.code}</span>.
-            </p>
-            <span className="text-[12.5px] italic text-ink-3" aria-live="polite">
-              {isSavingNote ? "Auto-saving…" : item.evidenceNote ? "Saved to folder" : ""}
-            </span>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Section title="Your note">
+          <p className="text-[16px] leading-relaxed text-ink-2">
+            Which paper in your folder covers this? A serial, receipt or memo number is enough. It prints on your readiness slip.
+          </p>
+          <div className="mt-3 flex items-center gap-2">
             <input
               type="text"
               maxLength={240}
               value={draftNote}
               onChange={(e) => setDraftNote(e.target.value)}
               placeholder={officeMeta.memoPlaceholder}
-              aria-label="Evidence memo"
-              className="h-10 min-w-[200px] flex-1 rounded-[var(--r-control)] bg-paper px-3.5 text-[15px] text-ink placeholder:text-ink-3 shadow-[inset_0_0_0_1px_var(--hair)] focus:outline-none focus:ring-2 focus:ring-ink/30"
+              aria-label={`Note for ${r.title}`}
+              aria-describedby={`${r.id}-note-status`}
+              className="h-11 min-w-0 flex-1 border-b border-ink/40 bg-transparent text-[17px] text-ink placeholder:italic placeholder:text-ink-3 focus:border-ink focus:outline-none"
             />
-            <Button
-              size="sm"
-              onClick={() => saveMemo(draftNote)}
-              disabled={draftNote.trim() === (item.evidenceNote ?? "")}
-            >
-              Save memo
-            </Button>
             {item.evidenceNote && (
-              <ConfirmAction
-                label="Clear"
-                confirmLabel="Confirm clear?"
-                ariaLabel="Clear evidence memo"
-                onConfirm={() => saveMemo("")}
-                className="h-9 px-3 text-[14px]"
-              />
+              <ConfirmAction label="Clear" confirmLabel="Clear note?" ariaLabel="Clear note" onConfirm={() => saveMemo("")} className="h-9 px-3 text-[14.5px]" />
             )}
           </div>
-          {officeMeta.memoPresets.length > 0 && (
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              <span className="text-[13px] text-ink-3">Quick presets:</span>
+          <p id={`${r.id}-note-status`} className="mt-1.5 h-5 text-[14px] italic text-ink-3" aria-live="polite">
+            {isSavingNote ? "Saving…" : item.evidenceNote ? "Saved" : ""}
+          </p>
+          {officeMeta.memoPresets.length > 0 && !draftNote && (
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[15px]">
+              <span className="italic text-ink-3">Or:</span>
               {officeMeta.memoPresets.map((preset) => (
                 <button
                   key={preset}
                   type="button"
                   onClick={() => saveMemo(preset)}
-                  className="rounded-full bg-paper px-2.5 py-0.5 text-[13px] text-ink-2 shadow-[inset_0_0_0_1px_var(--hair)] transition-colors hover:bg-sunken hover:text-ink"
+                  className="tap text-ink-2 underline decoration-ink/25 underline-offset-4 transition-colors hover:text-ink hover:decoration-ink"
                 >
                   {preset}
                 </button>
               ))}
-            </div>
+            </p>
           )}
         </Section>
 
         {sharedLinks && sharedLinks.others.length > 0 && (
-          <Section title={`Shared physical folder: ${sharedLinks.group.folderItemTitle}`}>
-            <p className="text-[15px] leading-relaxed text-ink-2">
-              This document belongs to your <strong className="font-semibold text-ink">{sharedLinks.group.folderItemTitle}</strong> bundle (Tier{" "}
-              {sharedLinks.self.strictnessRank}: {sharedLinks.self.strictnessLabel}). Here is how it connects across your other dossiers:
+          <Section title="Collect it with">
+            <p className="text-[16px] leading-relaxed text-ink-2">
+              {sharedLinks.group.description}
             </p>
-            <ul className="mt-3 space-y-2">
-              {sharedLinks.others.map((peer) => {
-                const satisfiesPeer =
-                  sharedLinks.self.status === "completed" &&
-                  sharedLinks.self.strictnessRank >= peer.strictnessRank;
-                const satisfiedByPeer =
-                  peer.status === "completed" &&
-                  peer.strictnessRank >= sharedLinks.self.strictnessRank;
-                return (
-                  <li
-                    key={`${peer.noticeId}-${peer.requirementId}`}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--r-card)] bg-paper p-3 shadow-[inset_0_0_0_1px_var(--hair)]"
+            <ul className="mt-3 divide-y divide-ink/10">
+              {sharedLinks.others.map((peer) => (
+                <li key={`${peer.noticeId}-${peer.requirementId}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveNotice(peer.noticeId);
+                      openInspector({ noticeId: peer.noticeId, requirementId: peer.requirementId });
+                    }}
+                    className="group flex w-full items-baseline justify-between gap-4 py-3 text-left"
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[15px] font-semibold text-ink">
-                        {peer.noticeTitle} · <span className="font-normal text-ink-2">{peer.title}</span>
-                      </p>
-                      <p className="mt-0.5 text-[13.5px] text-ink-3">
-                        Tier {peer.strictnessRank}: {peer.strictnessLabel}
-                        {satisfiesPeer
-                          ? " · Your verified copy here already meets this standard"
-                          : satisfiedByPeer
-                            ? " · Already satisfied by your verified copy in that dossier"
-                            : ""}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveNotice(peer.noticeId);
-                        openInspector({ noticeId: peer.noticeId, requirementId: peer.requirementId });
-                      }}
-                      className="shrink-0 text-[13.5px] font-semibold text-ink underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+                    <span className="min-w-0">
+                      <span className="block text-[16px] font-semibold leading-snug group-hover:underline group-hover:decoration-ink/30 group-hover:underline-offset-4">
+                        {peer.title}
+                      </span>
+                      <span className="block text-[14.5px] italic text-ink-3">
+                        {peer.noticeId === notice.id ? "This dossier" : shortTitle(notices.find((n) => n.id === peer.noticeId) ?? notice)}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        "flex-none text-[14.5px]",
+                        peer.status === "completed" ? "text-ok" : peer.status === "needs_reverification" ? "text-warn" : "text-ink-3"
+                      )}
                     >
-                      Inspect ({peer.status === "completed" ? "Ready" : peer.status === "needs_reverification" ? "Stale" : "Pending"}) →
-                    </button>
-                  </li>
-                );
-              })}
+                      {peer.status === "completed" ? "Checked" : peer.status === "needs_reverification" ? "Stale" : peer.status === "exempt" ? "Not for you" : "Not yet"}
+                    </span>
+                  </button>
+                </li>
+              ))}
             </ul>
           </Section>
         )}

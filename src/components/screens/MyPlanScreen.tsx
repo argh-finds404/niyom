@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { CheckCheck, Copy, LayoutList, Printer, RotateCcw, Share2, Sparkles, Table2 } from "lucide-react";
+import { CheckCheck, Copy, LayoutList, Link2, Printer, RotateCcw, Table2 } from "lucide-react";
 import { applicantProfileSchema, getRequirementOfficeMeta } from "@/domain";
 import type { ApplicantProfile, EvaluatedRequirementItem } from "@/domain/types";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
@@ -17,7 +16,7 @@ import { ConfirmAction } from "@/components/ui/ConfirmAction";
 import { LedgerDataTable, type LedgerColumn } from "@/components/ui/LedgerDataTable";
 import { AnimatedNumber, Button, Meter, Skel, Stamp, withViewTransition } from "@/components/ui/primitives";
 import { Deadline } from "@/components/ui/Deadline";
-import { MotionGraph } from "@/components/ui/MotionGraph";
+import { PrepSchedule } from "@/components/ui/PrepSchedule";
 import { RequirementEntry } from "@/components/ledger/RequirementEntry";
 
 const INSTITUTIONS: [string, string][] = [
@@ -405,10 +404,14 @@ function ReadinessSlip({ printedAt }: { printedAt: string }) {
                   {i.requirement.mandatory ? "" : " (optional)"}
                   <br />
                   {i.requirement.value}
-                  <br />
-                  <span className="text-[8.5pt] text-neutral-600">
-                    Counter: {meta.office} ({meta.leadDays === 0 ? "Same-day" : `~${meta.leadDays}d`})
-                  </span>
+                  {meta.office && (
+                    <>
+                      <br />
+                      <span className="text-[8.5pt] text-neutral-600">
+                        From {meta.office}, {meta.leadDays === 0 ? "same day" : `about ${meta.leadDays} working day${meta.leadDays === 1 ? "" : "s"}`}
+                      </span>
+                    </>
+                  )}
                 </td>
                 <td className="py-1.5 pr-2">{status(i)}</td>
                 <td className="py-1.5 pr-2">{i.evidenceNote ?? "—"}</td>
@@ -449,11 +452,9 @@ export function MyPlanScreen() {
   const intel = useDossierIntelligence();
   const sharedGroups = useSharedFolderGroups();
   const hydrated = useNiyomStore((s) => s.isHydrated);
-  const profile = useNiyomStore((s) => s.profile);
   const setActiveNotice = useNiyomStore((s) => s.setActiveNotice);
   const setNoticeActiveVersion = useNiyomStore((s) => s.setNoticeActiveVersion);
   const reverifyBulk = useNiyomStore((s) => s.reverifyBulk);
-  const checkAllRequired = useNiyomStore((s) => s.checkAllRequired);
   const clearDossierChecks = useNiyomStore((s) => s.clearDossierChecks);
   const openInspector = useUiStore((s) => s.openInspector);
   const toast = useUiStore((s) => s.toast);
@@ -462,18 +463,16 @@ export function MyPlanScreen() {
   const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     if (location.hash === "#profile") document.getElementById("profile")?.scrollIntoView({ block: "start" });
-    const params = new URLSearchParams(window.location.search);
-    const dossierParam = params.get("dossier");
-    const verParam = Number(params.get("ver"));
-    if (dossierParam && all.some((d) => d.notice.id === dossierParam)) {
-      setActiveNotice(dossierParam);
-      if (Number.isInteger(verParam) && verParam > 0) {
-        setNoticeActiveVersion(dossierParam, verParam);
-      }
-    }
-  }, [all, setActiveNotice, setNoticeActiveVersion]);
+    // A shared link (/my-plan?dossier=…&ver=…) opens that dossier at that version, once, on arrival.
+    const params = new URLSearchParams(location.search);
+    const target = useNiyomStore.getState().notices.find((n) => n.id === params.get("dossier"));
+    if (!target) return;
+    setActiveNotice(target.id);
+    const ver = Number(params.get("ver"));
+    if (target.versions.some((v) => v.versionNumber === ver) && ver !== target.activeVersionNumber) setNoticeActiveVersion(target.id, ver);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- arrival only; re-running would undo the reader's own choices
+  }, []);
 
   const activeVersionNumber = intel?.activeVersion.versionNumber ?? 1;
 
@@ -481,7 +480,7 @@ export function MyPlanScreen() {
     () => [
       {
         id: "code",
-        header: "Code & Requirement",
+        header: "Requirement",
         sortValue: (i) => i.requirement.code,
         cell: (i) => (
           <div>
@@ -493,7 +492,7 @@ export function MyPlanScreen() {
       },
       {
         id: "counter",
-        header: "Issuing Counter",
+        header: "Issued by",
         sortValue: (i) => getRequirementOfficeMeta(i.requirement.id, activeVersionNumber).office,
         cell: (i) => {
           const meta = getRequirementOfficeMeta(i.requirement.id, activeVersionNumber);
@@ -507,7 +506,7 @@ export function MyPlanScreen() {
       },
       {
         id: "leadDays",
-        header: "Lead Time",
+        header: "Lead time",
         align: "right",
         sortValue: (i) => getRequirementOfficeMeta(i.requirement.id, activeVersionNumber).leadDays,
         cell: (i) => {
@@ -529,11 +528,11 @@ export function MyPlanScreen() {
       },
       {
         id: "memo",
-        header: "Evidence Memo",
+        header: "Your note",
         sortValue: (i) => i.evidenceNote ?? "",
         cell: (i) => (
           <span className="text-[13.5px] text-ink-2">
-            {i.evidenceNote ? i.evidenceNote : <span className="italic text-ink-3">Click to add →</span>}
+            {i.evidenceNote ? i.evidenceNote : <span className="italic text-ink-3">Add a note</span>}
           </span>
         ),
       },
@@ -557,20 +556,13 @@ export function MyPlanScreen() {
   const pendingRequired = required.filter((i) => i.readinessStatus !== "completed");
   const checkedCount = s.items.filter((i) => i.readinessStatus === "completed" || i.readinessStatus === "needs_reverification").length;
 
-  const referralUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/my-plan?dossier=${encodeURIComponent(notice.id)}&ver=${activeVersion.versionNumber}&cgpa=${profile.cgpa}&level=${profile.studyLevel}&year=${profile.currentYear}`
-      : `/my-plan?dossier=${encodeURIComponent(notice.id)}&ver=${activeVersion.versionNumber}`;
+  // Only the dossier and version: never the reader's profile.
+  const sharePath = `/my-plan?dossier=${encodeURIComponent(notice.id)}&ver=${activeVersion.versionNumber}`;
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}${sharePath}` : sharePath;
 
-  const copyReferralLink = () => {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      void navigator.clipboard.writeText(referralUrl);
-    }
-    toast({
-      tone: "ok",
-      title: "Referral & handoff link copied",
-      body: `Share with a classmate or campus desk to open ${shortTitle(notice)} (${tag}).`,
-    });
+  const copyShareLink = () => {
+    void navigator.clipboard?.writeText(shareUrl).catch(() => {});
+    toast({ tone: "ok", title: "Link copied", body: `It opens ${shortTitle(notice)} at ${tag}. Your profile and checks stay on this device.` });
   };
 
   const entries = (items: EvaluatedRequirementItem[]) => (
@@ -600,8 +592,8 @@ export function MyPlanScreen() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
-            <Button variant="ghost" onClick={() => setShareOpen((v) => !v)}>
-              <Share2 className="h-4 w-4" /> Share / Handoff link
+            <Button variant="ghost" aria-expanded={shareOpen} onClick={() => setShareOpen((v) => !v)}>
+              <Link2 className="h-4 w-4" /> Share this checklist
             </Button>
             <Button
               onClick={() => {
@@ -614,47 +606,27 @@ export function MyPlanScreen() {
           </div>
         </header>
 
-        {/* Civic Referral & Peer Handoff Card */}
-        <AnimatePresence initial={false}>
-          {shareOpen && (
-            <motion.section
-              initial={{ opacity: 0, height: 0, marginTop: 0 }}
-              animate={{ opacity: 1, height: "auto", marginTop: 24 }}
-              exit={{ opacity: 0, height: 0, marginTop: 0 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              aria-label="Civic referral and advocate handoff link"
-              className="overflow-hidden rounded-[var(--r-panel)] bg-paper shadow-[inset_0_0_0_1px_var(--hair)]"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
-                <div className="max-w-[60ch]">
-                  <p className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold uppercase tracking-wider text-ink-3">
-                    <Sparkles className="h-3.5 w-3.5 text-warn" />
-                    Civic Referral &amp; Peer Checklist Handoff
-                  </p>
-                  <p className="mt-1 text-[16px] leading-snug text-ink-2">
-                    Send this pre-configured link to a classmate, family helper, or campus legal-aid desk so they open{" "}
-                    <strong className="font-semibold text-ink">
-                      {shortTitle(notice)} ({tag})
-                    </strong>{" "}
-                    with your academic context ready.
-                  </p>
-                </div>
-                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                  <input
-                    type="text"
-                    readOnly
-                    value={referralUrl}
-                    aria-label="Shareable preparation plan URL"
-                    className="code h-10 min-w-[240px] flex-1 rounded-[var(--r-control)] bg-ground px-3 text-[13.5px] text-ink-2 shadow-[inset_0_0_0_1px_var(--hair)] sm:w-[340px]"
-                  />
-                  <Button size="sm" onClick={copyReferralLink}>
-                    <Copy className="h-3.5 w-3.5" /> Copy referral link
-                  </Button>
-                </div>
-              </div>
-            </motion.section>
-          )}
-        </AnimatePresence>
+        {shareOpen && (
+          <section aria-label="Share this checklist" className="anim-rise mt-6 rounded-[var(--r-panel)] bg-white/55 p-5 shadow-[0_0_0_1px_var(--hair)] sm:p-6">
+            <p className="max-w-[60ch] text-[16.5px] leading-relaxed text-ink-2">
+              Send a classmate or a helper straight to <span className="font-semibold text-ink">{shortTitle(notice)}</span> at {tag}. The link
+              carries only the dossier and its version; your profile, checks and notes stay on this device.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={shareUrl}
+                aria-label="Link to this checklist"
+                onFocus={(e) => e.currentTarget.select()}
+                className="h-10 min-w-0 flex-1 rounded-[var(--r-control)] bg-ground px-3 text-[14.5px] text-ink-2 shadow-[inset_0_0_0_1px_var(--hair)] sm:max-w-[420px]"
+              />
+              <Button size="sm" onClick={copyShareLink}>
+                <Copy className="h-3.5 w-3.5" /> Copy link
+              </Button>
+            </div>
+          </section>
+        )}
 
         <div role="tablist" aria-label="Dossier" className="scroll-x -mx-4 mt-10 flex gap-4 px-4 pb-6 pt-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-4">
           {all.map((d) => {
@@ -691,19 +663,15 @@ export function MyPlanScreen() {
           })}
         </div>
 
-        <div data-rail="Counter & folder plan" className="mt-8">
-          <MotionGraph
-            dossierTitle={shortTitle(notice)}
-            versionLabel={tag}
+        <div data-rail="When to start" className="mt-8">
+          <PrepSchedule
             timeline={timeline}
-            sharedGroups={sharedGroups}
-            activeNoticeId={notice.id}
-            onInspectRequirement={(reqId) => openInspector({ noticeId: notice.id, requirementId: reqId })}
-            onSelectDossierRequirement={(nId, reqId) => {
-              withViewTransition(() => setActiveNotice(nId));
+            groups={sharedGroups}
+            noticeId={notice.id}
+            onInspect={(nId, reqId) => {
+              if (nId !== notice.id) withViewTransition(() => setActiveNotice(nId));
               openInspector({ noticeId: nId, requirementId: reqId });
             }}
-            defaultTab="sequence"
           />
         </div>
 
@@ -792,30 +760,6 @@ export function MyPlanScreen() {
                     >
                       <CheckCheck className="h-3.5 w-3.5" />
                       Re-verify all stale ({stale.length})
-                    </Button>
-                  )}
-
-                  {pendingRequired.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        withViewTransition(() =>
-                          checkAllRequired(
-                            notice.id,
-                            pendingRequired.map((i) => i.requirement),
-                            activeVersion.versionNumber
-                          )
-                        );
-                        toast({
-                          tone: "ok",
-                          title: `Verified ${plural(pendingRequired.length, "required item")}`,
-                          body: `All applicable required items in ${shortTitle(notice)} marked ready.`,
-                        });
-                      }}
-                    >
-                      <CheckCheck className="h-3.5 w-3.5" />
-                      Check all required ({pendingRequired.length})
                     </Button>
                   )}
 

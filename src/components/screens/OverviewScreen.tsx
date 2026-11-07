@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { compareNoticeVersions } from "@/domain";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
-import { useAllIntelligence, useDossierIntelligence, useSharedFolderGroups, type DossierIntelligence } from "@/hooks/useDossierIntelligence";
+import { useAllIntelligence, useDossierIntelligence, type DossierIntelligence } from "@/hooks/useDossierIntelligence";
 import { HERO_NOTICE_ID, useScenarios } from "@/hooks/useScenarios";
 import { chapterOf } from "@/lib/chapters";
 import { CATEGORY_LABEL, formatDate, isConsequential, isCosmetic, plural, shortTitle, versionTag } from "@/lib/format";
@@ -13,8 +13,10 @@ import { cn } from "@/lib/utils";
 import { Bleed, Container, Page } from "@/components/ui/Page";
 import { NoticeObject } from "@/components/ui/NoticeObject";
 import { Deadline } from "@/components/ui/Deadline";
-import { MotionGraph } from "@/components/ui/MotionGraph";
-import { ActionRowLink, ActionRows, AnimatedNumber, Button, Meter, Skel, buttonClass, withViewTransition } from "@/components/ui/primitives";
+import { scheduleHeadline } from "@/components/ui/PrepSchedule";
+import { CorrigendumScene } from "@/components/ui/CorrigendumScene";
+import { PaperRow, VersionTrack } from "@/components/ui/Visuals";
+import { ActionRowLink, ActionRows, AnimatedNumber, Button, Skel, buttonClass, withViewTransition } from "@/components/ui/primitives";
 import { Redline } from "@/components/ledger/parts";
 
 const link = "font-semibold underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink";
@@ -46,12 +48,18 @@ function StatusCard({ intel }: { intel: DossierIntelligence }) {
           {hydrated ? <AnimatedNumber value={s.percentage} /> : <Skel className="h-12 w-24" />}
           <span className="text-[30px]">%</span>
         </span>
-        <span className="text-[17px] text-ink-2">ready</span>
+        <span className="text-[17px] text-ink-2">{hydrated && s.percentage === 100 ? "ready to submit" : "ready"}</span>
       </p>
-      <Meter value={hydrated ? s.percentage : 0} className="mt-4" />
-      <p className="num mt-2.5 text-[15.5px] text-ink-2">
-        {hydrated ? `${s.completedMandatoryCount} of ${s.totalApplicableMandatoryCount} required items checked` : <Skel className="h-4 w-48" />}
-      </p>
+      {hydrated ? (
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <PaperRow items={s.items.filter((i) => i.requirement.mandatory && i.applicability === "APPLIES").map((i) => ({ id: i.requirement.id, title: i.requirement.title, status: i.readinessStatus }))} size={1.15} />
+          <span className="num text-[15px] italic text-ink-3">
+            {s.completedMandatoryCount} of {s.totalApplicableMandatoryCount} papers
+          </span>
+        </div>
+      ) : (
+        <Skel className="mt-4 h-6 w-48" />
+      )}
 
       {hydrated && (s.staleReverificationCount > 0 || s.conflictCount > 0) && (
         <ul className="mt-5 space-y-1.5 text-[16px]">
@@ -87,8 +95,14 @@ function StatusCard({ intel }: { intel: DossierIntelligence }) {
 
 function Hero({ intel }: { intel: DossierIntelligence }) {
   return (
-    <Bleed data-rail="Start" className="wash">
-      <Container className="grid grid-cols-1 items-center gap-x-14 gap-y-6 pb-20 pt-8 lg:min-h-[calc(100svh-var(--bar-h))] lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:pb-24 lg:pt-6">
+    <Bleed data-rail="Start" className="wash relative">
+      {/* The rule's own name, engraved large behind the paper stack, drifting slower than the page. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <span className="drift absolute -bottom-[0.2em] -left-[0.04em] select-none font-bengali text-[clamp(150px,30vw,440px)] leading-none text-transparent [-webkit-text-stroke:1.25px_color-mix(in_srgb,var(--ink)_13%,transparent)]">
+          নিয়ম
+        </span>
+      </div>
+      <Container className="relative grid grid-cols-1 items-center gap-x-14 gap-y-6 pb-20 pt-8 lg:min-h-[calc(100svh-var(--bar-h))] lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:pb-24 lg:pt-6">
         <figure className="order-2 min-w-0 lg:order-1">
           <NoticeObject notice={intel.notice} float className="max-w-[540px]" />
           <figcaption className="mt-3 text-center text-[15px] italic text-ink-3">
@@ -207,41 +221,40 @@ function ActionList({ intel }: { intel: DossierIntelligence }) {
   );
 }
 
-/* ───────────── Counter-Day & Shared Physical Folder Flow ───────────── */
+/* ───────────── When to start ───────────── */
 
-function CounterAndFolderSection({ intel }: { intel: DossierIntelligence }) {
-  const sharedGroups = useSharedFolderGroups();
-  const setActiveNotice = useNiyomStore((s) => s.setActiveNotice);
-  const openInspector = useUiStore((s) => s.openInspector);
-  const { notice, activeVersion, timeline } = intel;
-
+function WhenToStart({ intel }: { intel: DossierIntelligence }) {
+  const hydrated = useNiyomStore((s) => s.isHydrated);
+  const head = scheduleHeadline(intel.timeline);
   return (
-    <section data-rail="One folder, four desks" aria-labelledby="folder-flow" className="pt-28">
-      <Container>
-        <div className="mb-10 grid grid-cols-1 gap-x-16 gap-y-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
-          <h2 id="folder-flow" className="display text-[34px] sm:text-[40px]">
-            One physical folder. Four institutional desks.
+    <section data-rail="When to start" aria-labelledby="when" className="pt-28">
+      <Container className="grid grid-cols-1 gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
+        <div className="min-w-0">
+          <h2 id="when" className="display text-[34px] sm:text-[40px]">
+            When to start
           </h2>
-          <p className="text-[18px] leading-relaxed text-ink-2 lg:pt-2">
-            An applicant rarely prepares for one circular in isolation. NIYOM maps the working-day counter sequence for{" "}
-            <span className="font-semibold text-ink">{shortTitle(notice)}</span> (accounting for closed Friday–Saturday counters) and links
-            your attested marksheets, enrollment proofs, and payment vouchers across all four dossiers by strictness tier.
+          <p className="mt-3 max-w-[36ch] text-[18px] italic leading-snug text-ink-2">
+            Papers take days at the counters that issue them, and offices close on Friday and Saturday.
           </p>
         </div>
-
-        <MotionGraph
-          dossierTitle={shortTitle(notice)}
-          versionLabel={versionTag(activeVersion.versionLabel)}
-          timeline={timeline}
-          sharedGroups={sharedGroups}
-          activeNoticeId={notice.id}
-          onInspectRequirement={(reqId) => openInspector({ noticeId: notice.id, requirementId: reqId })}
-          onSelectDossierRequirement={(nId, reqId) => {
-            withViewTransition(() => setActiveNotice(nId));
-            openInspector({ noticeId: nId, requirementId: reqId });
-          }}
-          defaultTab="sequence"
-        />
+        <div className="min-w-0">
+          {hydrated ? (
+            <>
+              <p className={cn("display text-[30px] leading-tight sm:text-[36px]", head.tone === "crit" ? "text-crit" : head.tone === "warn" ? "text-warn" : "")}>
+                {head.title}
+              </p>
+              <p className="mt-3 text-[18px] leading-relaxed text-ink-2">{head.body}</p>
+            </>
+          ) : (
+            <div aria-busy className="space-y-3">
+              <Skel className="h-9 w-64" />
+              <Skel className="h-16 w-full" />
+            </div>
+          )}
+          <Link href="/my-plan" className={cn("mt-5 inline-block text-[16px]", link)}>
+            See the order of visits in my plan
+          </Link>
+        </div>
       </Container>
     </section>
   );
@@ -355,11 +368,6 @@ function Chapters() {
         const first = notice.versions[0];
         const last = notice.versions[notice.versions.length - 1];
         const changes = notice.versions.length > 1 ? compareNoticeVersions(first, last).filter(isConsequential).length : 0;
-        const facts: [string, React.ReactNode][] = [
-          ["versions", notice.versions.length],
-          ["changes that matter", changes],
-          ["ready", hydrated ? `${s.percentage}%` : "—"],
-        ];
         return (
           <Bleed
             key={notice.id}
@@ -367,11 +375,17 @@ function Chapters() {
             data-cover={chapterOf(notice.id)}
             data-rail={shortTitle(notice)}
             aria-labelledby={`title-${notice.id}`}
-            className="scroll-mt-[var(--bar-h)] py-24 lg:py-32"
+            className="relative scroll-mt-[var(--bar-h)] py-24 lg:py-32"
           >
-            <Container className="grid grid-cols-1 items-center gap-x-16 gap-y-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,500px)]">
+            {/* The version this chapter is on, engraved behind it. */}
+            <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+              <span className="drift-view absolute -right-[0.06em] top-[8%] select-none text-[clamp(140px,26vw,400px)] font-semibold italic leading-none tracking-[-0.04em] text-transparent [-webkit-text-stroke:1.25px_color-mix(in_srgb,var(--ink)_16%,transparent)]">
+                {versionTag(activeVersion.versionLabel)}
+              </span>
+            </div>
+            <Container className="relative grid grid-cols-1 items-center gap-x-16 gap-y-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,500px)]">
               <Link href={`/notice/${notice.id}`} onClick={() => setActiveNotice(notice.id)} aria-label={`Open ${shortTitle(notice)}`} className="block min-w-0">
-                <NoticeObject notice={notice} morph className="max-w-[460px]" />
+                <NoticeObject notice={notice} morph open="view" className="max-w-[540px]" />
               </Link>
               <div className="min-w-0">
                 <p className="text-[16px] italic text-ink-2">{CATEGORY_LABEL[notice.category]}</p>
@@ -380,14 +394,17 @@ function Chapters() {
                 </h2>
                 <p className="mt-3 text-[18px] italic leading-snug text-ink-2">{notice.title}</p>
                 <p className="mt-7 text-[17px] leading-relaxed text-ink-2">{activeVersion.changeSummary}</p>
-                <dl className="mt-8 grid grid-cols-3 gap-4">
-                  {facts.map(([label, value]) => (
-                    <div key={label} className="flex flex-col">
-                      <dt className="mt-1.5 text-[15px] italic text-ink-2">{label}</dt>
-                      <dd className="display num order-first text-[34px] leading-none">{value}</dd>
+                <div className="mt-8 flex items-center gap-8">
+                  <VersionTrack notice={notice} className="min-w-0 flex-1" />
+                  {hydrated ? (
+                    <div className="flex-none text-right">
+                      <p className="display num text-[34px] leading-none">{s.percentage}%</p>
+                      <PaperRow items={s.items.filter((i) => i.requirement.mandatory && i.applicability === "APPLIES").map((i) => ({ id: i.requirement.id, title: i.requirement.title, status: i.readinessStatus }))} className="mt-2 justify-end" />
                     </div>
-                  ))}
-                </dl>
+                  ) : (
+                    <Skel className="h-14 w-24" />
+                  )}
+                </div>
                 <ActionRows className="mt-9">
                   <ActionRowLink
                     href={`/notice/${notice.id}`}
@@ -425,8 +442,9 @@ export function OverviewScreen() {
   return (
     <Page bleed>
       <Hero intel={intel} />
+      <CorrigendumScene />
       <ActionList intel={intel} />
-      <CounterAndFolderSection intel={intel} />
+      <WhenToStart intel={intel} />
       <NoiseFilter />
       <Chapters />
     </Page>
