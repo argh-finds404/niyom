@@ -30,6 +30,8 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   const setActiveNotice = useNiyomStore((s) => s.setActiveNotice);
   const scenarios = useScenarios();
   const openDrawer = useUiStore((s) => s.openDrawer);
+  const setApiOpen = useUiStore((s) => s.setApiOpen);
+  const setHelpOpen = useUiStore((s) => s.setHelpOpen);
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
@@ -67,11 +69,57 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       });
     });
     list.push(
-      { id: "s1", group: "Scenarios", title: "Start prepared on v1.0", hint: "Walkthrough step 1 · every required item checked", keywords: "baseline v1 ready reset scenario", run: () => (scenarios.baseline(), onClose()) },
-      { id: "s2", group: "Scenarios", title: "A corrigendum arrives", hint: "Walkthrough step 2 · watch earlier checks go stale", keywords: "simulate v2 corrigendum update stale scenario", run: () => (scenarios.simulateCorrigendum(), onClose()) },
-      { id: "s3", group: "Scenarios", title: "The railway refund case", hint: "Walkthrough step 3 · two official timelines disagree", keywords: "railway shohoz refund bkash nagad scenario", run: () => (scenarios.openRailway(), onClose()) },
-      { id: "s4", group: "Scenarios", title: "Flag a discrepancy", hint: "Add a field report", keywords: "flag report discrepancy community", run: () => openDrawer({ noticeId: activeNoticeId }) },
-      { id: "s5", group: "Scenarios", title: "Reset demo data", keywords: "reset clear demo", run: () => (scenarios.reset(), onClose()) }
+      {
+        id: "s1",
+        group: "Scenarios",
+        title: "Start prepared on v1.0",
+        hint: "Walkthrough step 1 · every required item checked",
+        keywords: "baseline v1 ready reset scenario",
+        run: () => {
+          scenarios.baseline();
+          onClose();
+        },
+      },
+      {
+        id: "s2",
+        group: "Scenarios",
+        title: "A corrigendum arrives",
+        hint: "Walkthrough step 2 · watch earlier checks go stale",
+        keywords: "simulate v2 corrigendum update stale scenario",
+        run: () => {
+          scenarios.simulateCorrigendum();
+          onClose();
+        },
+      },
+      {
+        id: "s3",
+        group: "Scenarios",
+        title: "The railway refund case",
+        hint: "Walkthrough step 3 · two official timelines disagree",
+        keywords: "railway shohoz refund bkash nagad scenario",
+        run: () => {
+          scenarios.openRailway();
+          onClose();
+        },
+      },
+      {
+        id: "s4",
+        group: "Scenarios",
+        title: "Flag a discrepancy",
+        hint: "Add a field report",
+        keywords: "flag report discrepancy community",
+        run: () => openDrawer({ noticeId: activeNoticeId }),
+      },
+      {
+        id: "s5",
+        group: "Scenarios",
+        title: "Reset demo data",
+        keywords: "reset clear demo",
+        run: () => {
+          scenarios.reset();
+          onClose();
+        },
+      }
     );
     (
       [
@@ -84,8 +132,26 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
     ).forEach(([title, href]) =>
       list.push({ id: `p-${title}`, group: "Pages", title, keywords: title, run: go(href) })
     );
+    list.push(
+      {
+        id: "p-api",
+        group: "Pages",
+        title: "Live Backend API",
+        hint: "Inspect live server responses, wordDiff tokens & curl commands",
+        keywords: "api backend server json health evaluate compare state",
+        run: () => setApiOpen(true),
+      },
+      {
+        id: "p-help",
+        group: "Pages",
+        title: "How NIYOM works",
+        hint: "Guide & keyboard shortcuts",
+        keywords: "help guide keyboard shortcuts how it works",
+        run: () => setHelpOpen(true),
+      }
+    );
     return list;
-  }, [notices, activeNoticeId, setActiveNotice, router, scenarios, openDrawer, onClose]);
+  }, [notices, activeNoticeId, setActiveNotice, router, scenarios, openDrawer, setApiOpen, setHelpOpen, onClose]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -96,7 +162,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
           return terms.every((t) => hay.includes(t));
         })
       : commands.filter((c) => c.group !== "Requirements");
-    return GROUP_ORDER.flatMap((g) => matched.filter((c) => c.group === g).slice(0, g === "Requirements" ? 8 : 6));
+    return GROUP_ORDER.flatMap((g) => matched.filter((c) => c.group === g).slice(0, g === "Requirements" ? 8 : 7));
   }, [commands, query]);
 
   const safeCursor = Math.min(cursor, Math.max(results.length - 1, 0));
@@ -120,9 +186,18 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
             setCursor(0);
           }}
           onKeyDown={(e) => {
-            if (e.key === "ArrowDown") (e.preventDefault(), move(1));
-            if (e.key === "ArrowUp") (e.preventDefault(), move(-1));
-            if (e.key === "Enter" && results[safeCursor]) (e.preventDefault(), results[safeCursor].run());
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              move(1);
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              move(-1);
+            }
+            if (e.key === "Enter" && results[safeCursor]) {
+              e.preventDefault();
+              results[safeCursor].run();
+            }
           }}
           role="combobox"
           aria-expanded

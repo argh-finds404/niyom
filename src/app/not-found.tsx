@@ -10,7 +10,7 @@ export default function NotFound() {
       </p>
       <Link
         href="/explore"
-        className="mt-10 inline-flex h-11 items-center border border-ink bg-ink px-4 text-[16px] font-semibold text-ground transition-colors hover:bg-ink/88"
+        className="mt-10 inline-flex h-11 items-center rounded-[var(--r-control)] border border-ink bg-ink px-4 text-[16px] font-semibold text-ground transition-colors hover:bg-ink/88"
       >
         Browse the directory
       </Link>

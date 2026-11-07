@@ -71,7 +71,7 @@ export function HelpSheet() {
             ))}
           </dl>
           <p className="mt-8 text-[15px] italic leading-relaxed text-[#6b655b]">
-            Everything you check or edit is saved in this browser only. The dossiers are an illustrative dataset.
+            Your checklist and profile are saved on this device and backed up to the server under an anonymous device cookie. The dossiers are an illustrative dataset.
           </p>
         </div>
       </div>
