@@ -114,4 +114,35 @@ describe("client ↔ server sync", () => {
     await useNiyomStore.getState().syncWithBackend();
     expect(useNiyomStore.getState().myConfirmedIds).toContain(seed.id);
   });
+
+  it("supports bulk actions (checkAllRequired, reverifyBulk, clearDossierChecks) and preserves evidence memos", async () => {
+    const v1Reqs = [requirement("req-transcript"), requirement("req-student-id")];
+    useNiyomStore.getState().checkAllRequired(merit.id, v1Reqs, 1);
+    useNiyomStore.getState().updateRequirementNote(merit.id, requirement("req-transcript"), 1, "Registrar Serial #409");
+
+    await vi.waitFor(async () => {
+      const s = await serverState();
+      expect(s.readinessRecords).toHaveLength(2);
+      const tr = s.readinessRecords.find((r: { requirementId: string }) => r.requirementId === "req-transcript");
+      expect(tr.note).toBe("Registrar Serial #409");
+      expect(tr.checked).toBe(true);
+    });
+
+    // Bulk re-verify against v3 preserves the existing evidence memo
+    const v3Transcript = merit.versions[2].requirements.find((r) => r.id === "req-transcript")!;
+    useNiyomStore.getState().reverifyBulk(merit.id, [v3Transcript], 3);
+    await vi.waitFor(async () => {
+      const s = await serverState();
+      const tr = s.readinessRecords.find((r: { requirementId: string }) => r.requirementId === "req-transcript");
+      expect(tr.verifiedAgainstVersion).toBe(3);
+      expect(tr.note).toBe("Registrar Serial #409");
+    });
+
+    // Clear dossier checks unchecks all records while keeping memos intact
+    useNiyomStore.getState().clearDossierChecks(merit.id);
+    await vi.waitFor(async () => {
+      const s = await serverState();
+      expect(s.readinessRecords.every((r: { checked: boolean }) => r.checked === false)).toBe(true);
+    });
+  });
 });

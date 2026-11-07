@@ -12,6 +12,7 @@ import { HelpSheet } from "./HelpSheet";
 import { ApiInspector } from "./ApiInspector";
 import { Notices } from "./Notices";
 import { Inspector } from "@/components/ledger/Inspector";
+import { AmbientFlow } from "@/components/ui/AmbientFlow";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const hydrate = useNiyomStore((s) => s.hydrateFromStorage);
@@ -39,6 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
+      <AmbientFlow />
       <a
         href="#main"
         className="fixed left-4 top-2 z-[70] -translate-y-20 rounded-[var(--r-control)] bg-ink px-3 py-2 text-[15px] text-ground transition-transform focus:translate-y-0"
@@ -48,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Suspense fallback={null}>
         <Rail />
       </Suspense>
-      <div className="flex min-h-screen flex-col pl-[var(--rail-w)]">
+      <div className="relative z-10 flex min-h-screen flex-col pl-[var(--rail-w)]">
         <Suspense fallback={<TopBarFallback />}>
           <TopBar />
           <MobileMenu />

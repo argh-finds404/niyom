@@ -43,9 +43,11 @@ CREATE TABLE IF NOT EXISTS niyom_records (
   checked boolean NOT NULL,
   verified_value text NOT NULL,
   verified_version integer NOT NULL,
+  note text,
   updated_at timestamptz NOT NULL,
   PRIMARY KEY (device_id, notice_id, requirement_id)
 );
+ALTER TABLE niyom_records ADD COLUMN IF NOT EXISTS note text;
 CREATE TABLE IF NOT EXISTS niyom_reports (
   id text PRIMARY KEY,
   notice_id text NOT NULL,
@@ -167,7 +169,7 @@ export function createPostgresStore(db: Pick<Pool, "query">): LedgerStore {
         const [device, records] = await Promise.all([
           db.query(`SELECT profile, active_versions, stage, updated_at FROM niyom_devices WHERE id = $1::uuid`, [id]),
           db.query(
-            `SELECT notice_id, requirement_id, checked, verified_value, verified_version, updated_at
+            `SELECT notice_id, requirement_id, checked, verified_value, verified_version, note, updated_at
              FROM niyom_records WHERE device_id = $1::uuid ORDER BY notice_id, requirement_id`,
             [id]
           ),
@@ -183,6 +185,7 @@ export function createPostgresStore(db: Pick<Pool, "query">): LedgerStore {
               checked: r.checked,
               verifiedAgainstValue: r.verified_value,
               verifiedAgainstVersion: Number(r.verified_version),
+              ...(r.note ? { note: r.note } : {}),
               updatedAt: iso(r.updated_at),
             })
           ),
@@ -214,15 +217,16 @@ export function createPostgresStore(db: Pick<Pool, "query">): LedgerStore {
         // One row per requirement (the newest), or Postgres refuses to update a row twice in one statement.
         const records = mergeRecords([], patch.readinessRecords).map((r) => ({ ...r, updatedAt: iso(r.updatedAt) }));
         await db.query(
-          `INSERT INTO niyom_records (device_id, notice_id, requirement_id, checked, verified_value, verified_version, updated_at)
-           SELECT $1::uuid, r."noticeId", r."requirementId", r.checked, r."verifiedAgainstValue", r."verifiedAgainstVersion", r."updatedAt"
+          `INSERT INTO niyom_records (device_id, notice_id, requirement_id, checked, verified_value, verified_version, note, updated_at)
+           SELECT $1::uuid, r."noticeId", r."requirementId", r.checked, r."verifiedAgainstValue", r."verifiedAgainstVersion", r.note, r."updatedAt"
            FROM jsonb_to_recordset($2::text::jsonb) AS r(
              "noticeId" text, "requirementId" text, checked boolean, "verifiedAgainstValue" text,
-             "verifiedAgainstVersion" integer, "updatedAt" timestamptz)
+             "verifiedAgainstVersion" integer, note text, "updatedAt" timestamptz)
            ON CONFLICT (device_id, notice_id, requirement_id) DO UPDATE SET
              checked = EXCLUDED.checked,
              verified_value = EXCLUDED.verified_value,
              verified_version = EXCLUDED.verified_version,
+             note = EXCLUDED.note,
              updated_at = EXCLUDED.updated_at
            WHERE EXCLUDED.updated_at >= niyom_records.updated_at`,
           [id, JSON.stringify(records)]

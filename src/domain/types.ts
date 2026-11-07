@@ -107,6 +107,8 @@ export interface ReadinessRecord {
   verifiedAgainstValue: string;
   verifiedAgainstVersion: number;
   updatedAt: string;
+  /** Optional applicant reference memo (e.g. Controller Reg #, bKash TrxID, folder pocket). */
+  note?: string;
 }
 
 export interface RequirementChange {
@@ -129,6 +131,7 @@ export interface EvaluatedRequirementItem {
   applicabilityReason: string;
   readinessStatus: ReadinessItemStatus;
   previouslyVerifiedValue?: string;
+  evidenceNote?: string;
   latestChange?: RequirementChange;
   communityReports: CommunityReport[];
 }
@@ -146,4 +149,3 @@ export interface ReadinessSummary {
   hasUnresolvedConflicts: boolean;
   items: EvaluatedRequirementItem[];
 }
-

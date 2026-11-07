@@ -8,7 +8,7 @@ import { shortTitle } from "@/lib/format";
 import { Button, Overlay, Skel } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
-type TabId = "evaluate" | "compare" | "dossier" | "state" | "reports" | "dossiers" | "health";
+type TabId = "evaluate" | "plan" | "compare" | "dossier" | "state" | "reports" | "dossiers" | "health";
 type Call = { method: "GET" | "POST" | "PUT" | "PATCH"; path: string; body?: unknown };
 type Result =
   | { status: number; ms: number; requestId: string | null; cacheControl: string | null; json: unknown }
@@ -16,6 +16,7 @@ type Result =
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "evaluate", label: "Evaluate readiness" },
+  { id: "plan", label: "Counter plan & reuse" },
   { id: "compare", label: "Compare versions" },
   { id: "dossier", label: "Dossier ledger" },
   { id: "state", label: "Your saved state" },
@@ -31,6 +32,7 @@ const ENDPOINTS: { method: string; path: string; what: string; tab?: TabId; cale
   { method: "PATCH", path: "/api/dossiers/:id", what: "Change the version your checklist follows" },
   { method: "GET", path: "/api/compare?notice=…&from=1&to=3", what: "Deterministic redline diff & word tokens", tab: "compare" },
   { method: "POST", path: "/api/evaluate", what: "Server readiness calculation for profile & checks", tab: "evaluate" },
+  { method: "GET", path: "/api/plan?notice=…", what: "Counter-day timeline, safe start & cross-dossier reuse", tab: "plan" },
   { method: "GET", path: "/api/reports?noticeId=…", what: "List persisted community field reports", tab: "reports" },
   { method: "POST", path: "/api/reports", what: "Validate, stamp & persist a new field report" },
   { method: "PATCH", path: "/api/reports", what: "Confirm a report (once per device, never your own)" },
@@ -80,6 +82,11 @@ function Body({ onClose }: { onClose: () => void }) {
             profile,
             readinessRecords: records.filter((r) => r.noticeId === notice.id),
           },
+        };
+      case "plan":
+        return {
+          method: "GET",
+          path: `/api/plan?notice=${notice.id}`,
         };
       case "compare":
         return {

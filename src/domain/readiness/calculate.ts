@@ -87,6 +87,7 @@ export function calculateNoticeReadiness(
       applicabilityReason: appResult.reason,
       readinessStatus,
       previouslyVerifiedValue,
+      evidenceNote: record?.note || undefined,
       latestChange: changeMap.get(req.id),
       communityReports: reqReports,
     });
@@ -111,4 +112,3 @@ export function calculateNoticeReadiness(
     items,
   };
 }
-

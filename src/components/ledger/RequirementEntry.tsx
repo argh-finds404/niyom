@@ -2,6 +2,7 @@
 
 import { ChevronRight } from "lucide-react";
 import type { EvaluatedRequirementItem, Notice, NoticeVersion } from "@/domain/types";
+import { getRequirementOfficeMeta } from "@/domain";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
 import { versionTag } from "@/lib/format";
@@ -42,6 +43,7 @@ export function RequirementEntry({
   const tag = versionTag(activeVersion.versionLabel);
   const escalated = latestChange?.type === "modified" && latestChange.previous && !latestChange.previous.mandatory && r.mandatory;
   const changed = latestChange && latestChange.type !== "unchanged";
+  const officeMeta = getRequirementOfficeMeta(r.id, activeVersion.versionNumber);
 
   // One status, in order of what matters most.
   const status =
@@ -94,10 +96,22 @@ export function RequirementEntry({
         <span className={cn("mt-1 line-clamp-2 block max-w-[62ch] text-[16.5px] leading-relaxed text-ink-2", exempt && "opacity-60")}>
           {r.value}
         </span>
-        <span className="mt-1.5 block text-[14.5px] text-ink-3">
-          {r.mandatory ? "Required" : "Optional"}
-          {exempt ? ", not for your profile" : review ? ", depends on a field you have not filled" : ""}
-          {hydrated && done && <span className="text-ok">, checked against {tag}</span>}
+        <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14.5px] text-ink-3">
+          <span>
+            {r.mandatory ? "Required" : "Optional"}
+            {exempt ? ", not for your profile" : review ? ", depends on a field you have not filled" : ""}
+            {hydrated && done && <span className="text-ok">, checked against {tag}</span>}
+          </span>
+          {!exempt && officeMeta.leadDays > 0 && (
+            <span className="num">
+              · {officeMeta.office} (~{officeMeta.leadDays}d)
+            </span>
+          )}
+          {hydrated && item.evidenceNote && (
+            <span className="inline-flex items-center rounded bg-paper px-2 py-0.5 text-[13px] text-ink-2 shadow-[inset_0_0_0_1px_var(--hair)]">
+              Memo: <strong className="ml-1 font-medium text-ink">{item.evidenceNote}</strong>
+            </span>
+          )}
         </span>
       </button>
 
@@ -114,6 +128,12 @@ export function RequirementEntry({
       {stale && hydrated && (
         <div className="col-start-2 col-end-4 mt-4">
           <Redline before={item.previouslyVerifiedValue ?? ""} after={r.value} fromTag="yours" toTag={tag} />
+          {item.evidenceNote && (
+            <p className="mt-2.5 text-[14.5px] text-ink-2">
+              Your v1.0 folder memo:{" "}
+              <span className="font-medium text-ink">&ldquo;{item.evidenceNote}&rdquo;</span> — open details to update once re-verified.
+            </p>
+          )}
           <Button variant="warn" size="sm" className="mt-4" onClick={onReverify}>
             I have the updated document
           </Button>

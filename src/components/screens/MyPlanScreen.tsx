@@ -1,18 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Printer } from "lucide-react";
-import { applicantProfileSchema } from "@/domain";
+import { AnimatePresence, motion } from "framer-motion";
+import { CheckCheck, Copy, LayoutList, Printer, RotateCcw, Share2, Sparkles, Table2 } from "lucide-react";
+import { applicantProfileSchema, getRequirementOfficeMeta } from "@/domain";
 import type { ApplicantProfile, EvaluatedRequirementItem } from "@/domain/types";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
-import { useAllIntelligence, useDossierIntelligence, versionOf } from "@/hooks/useDossierIntelligence";
+import { useUiStore } from "@/hooks/useUiStore";
+import { useAllIntelligence, useDossierIntelligence, useSharedFolderGroups, versionOf } from "@/hooks/useDossierIntelligence";
 import { chapterOf } from "@/lib/chapters";
 import { formatDate, plural, profileLine, shortTitle, versionTag } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Page } from "@/components/ui/Page";
 import { CoverTile } from "@/components/ui/CoverTile";
-import { AnimatedNumber, Button, Meter, Skel, withViewTransition } from "@/components/ui/primitives";
+import { ConfirmAction } from "@/components/ui/ConfirmAction";
+import { LedgerDataTable, type LedgerColumn } from "@/components/ui/LedgerDataTable";
+import { AnimatedNumber, Button, Meter, Skel, Stamp, withViewTransition } from "@/components/ui/primitives";
 import { Deadline } from "@/components/ui/Deadline";
+import { MotionGraph } from "@/components/ui/MotionGraph";
 import { RequirementEntry } from "@/components/ledger/RequirementEntry";
 
 const INSTITUTIONS: [string, string][] = [
@@ -348,7 +353,7 @@ function ReadinessSlip({ printedAt }: { printedAt: string }) {
   const profile = useNiyomStore((s) => s.profile);
   const records = useNiyomStore((s) => s.readinessRecords);
   if (!intel) return null;
-  const { notice, activeVersion, readinessSummary: s } = intel;
+  const { notice, activeVersion, readinessSummary: s, timeline } = intel;
   const status = (i: EvaluatedRequirementItem) =>
     i.applicability === "DOES_NOT_APPLY"
       ? "Not applicable"
@@ -373,11 +378,14 @@ function ReadinessSlip({ printedAt }: { printedAt: string }) {
       <p className="mt-1">
         Readiness {s.percentage}% · {s.completedMandatoryCount} of {s.totalApplicableMandatoryCount} required verified ·{" "}
         {s.staleReverificationCount} stale · {s.conflictCount} source conflicts
+        {timeline.latestSafeStartDate && timeline.remainingLeadDays > 0
+          ? ` · Safe start by ${formatDate(timeline.latestSafeStartDate)} (~${timeline.remainingLeadDays} office days left)`
+          : ""}
       </p>
       <table className="mt-4 w-full border-collapse text-left">
         <thead>
           <tr className="border-b border-black">
-            {["", "Code", "Requirement", "Status", "Checked against", "Source"].map((h) => (
+            {["", "Code", "Requirement & Counter", "Status", "Evidence memo", "Checked against", "Source"].map((h) => (
               <th key={h} className="py-1 pr-2 font-semibold">
                 {h}
               </th>
@@ -387,6 +395,7 @@ function ReadinessSlip({ printedAt }: { printedAt: string }) {
         <tbody>
           {s.items.map((i) => {
             const rec = records.find((r) => r.noticeId === notice.id && r.requirementId === i.requirement.id && r.checked);
+            const meta = getRequirementOfficeMeta(i.requirement.id, activeVersion.versionNumber);
             return (
               <tr key={i.requirement.id} className="border-b border-neutral-300 align-top">
                 <td className="py-1.5 pr-2">{i.readinessStatus === "completed" ? "☑" : "☐"}</td>
@@ -396,8 +405,13 @@ function ReadinessSlip({ printedAt }: { printedAt: string }) {
                   {i.requirement.mandatory ? "" : " (optional)"}
                   <br />
                   {i.requirement.value}
+                  <br />
+                  <span className="text-[8.5pt] text-neutral-600">
+                    Counter: {meta.office} ({meta.leadDays === 0 ? "Same-day" : `~${meta.leadDays}d`})
+                  </span>
                 </td>
                 <td className="py-1.5 pr-2">{status(i)}</td>
+                <td className="py-1.5 pr-2">{i.evidenceNote ?? "—"}</td>
                 <td className="py-1.5 pr-2">{rec ? versionTag(versionOf(notice, rec.verifiedAgainstVersion).versionLabel) : "—"}</td>
                 <td className="py-1.5">{i.requirement.evidence.sectionOrPage}</td>
               </tr>
@@ -433,16 +447,102 @@ function Group({ id, title, meta, items, children }: { id: string; title: string
 export function MyPlanScreen() {
   const all = useAllIntelligence();
   const intel = useDossierIntelligence();
+  const sharedGroups = useSharedFolderGroups();
   const hydrated = useNiyomStore((s) => s.isHydrated);
+  const profile = useNiyomStore((s) => s.profile);
   const setActiveNotice = useNiyomStore((s) => s.setActiveNotice);
+  const setNoticeActiveVersion = useNiyomStore((s) => s.setNoticeActiveVersion);
+  const reverifyBulk = useNiyomStore((s) => s.reverifyBulk);
+  const checkAllRequired = useNiyomStore((s) => s.checkAllRequired);
+  const clearDossierChecks = useNiyomStore((s) => s.clearDossierChecks);
+  const openInspector = useUiStore((s) => s.openInspector);
+  const toast = useUiStore((s) => s.toast);
   const [printedAt, setPrintedAt] = useState("");
+  const [viewMode, setViewMode] = useState<"checklist" | "table">("checklist");
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     if (location.hash === "#profile") document.getElementById("profile")?.scrollIntoView({ block: "start" });
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    const dossierParam = params.get("dossier");
+    const verParam = Number(params.get("ver"));
+    if (dossierParam && all.some((d) => d.notice.id === dossierParam)) {
+      setActiveNotice(dossierParam);
+      if (Number.isInteger(verParam) && verParam > 0) {
+        setNoticeActiveVersion(dossierParam, verParam);
+      }
+    }
+  }, [all, setActiveNotice, setNoticeActiveVersion]);
+
+  const activeVersionNumber = intel?.activeVersion.versionNumber ?? 1;
+
+  const planTableColumns = useMemo<LedgerColumn<EvaluatedRequirementItem>[]>(
+    () => [
+      {
+        id: "code",
+        header: "Code & Requirement",
+        sortValue: (i) => i.requirement.code,
+        cell: (i) => (
+          <div>
+            <span className="code text-[13px] text-ink-3">{i.requirement.code}</span>
+            <p className="mt-0.5 font-semibold text-ink">{i.requirement.title}</p>
+            <p className="mt-0.5 line-clamp-1 text-[13.5px] text-ink-2">{i.requirement.value}</p>
+          </div>
+        ),
+      },
+      {
+        id: "counter",
+        header: "Issuing Counter",
+        sortValue: (i) => getRequirementOfficeMeta(i.requirement.id, activeVersionNumber).office,
+        cell: (i) => {
+          const meta = getRequirementOfficeMeta(i.requirement.id, activeVersionNumber);
+          return (
+            <div>
+              <p className="text-[14px] font-medium text-ink">{meta.office}</p>
+              <p className="text-[12.5px] text-ink-3">Stage {meta.stage} · {meta.stageLabel}</p>
+            </div>
+          );
+        },
+      },
+      {
+        id: "leadDays",
+        header: "Lead Time",
+        align: "right",
+        sortValue: (i) => getRequirementOfficeMeta(i.requirement.id, activeVersionNumber).leadDays,
+        cell: (i) => {
+          const d = getRequirementOfficeMeta(i.requirement.id, activeVersionNumber).leadDays;
+          return <span className="text-ink-2">{d === 0 ? "Same-day" : `~${d}d`}</span>;
+        },
+      },
+      {
+        id: "status",
+        header: "Status",
+        sortValue: (i) => i.readinessStatus,
+        cell: (i) => {
+          if (i.readinessStatus === "completed") return <Stamp tone="ok">Verified</Stamp>;
+          if (i.readinessStatus === "needs_reverification") return <Stamp tone="warn">Stale</Stamp>;
+          if (i.applicability === "DOES_NOT_APPLY") return <Stamp tone="plain">Exempt</Stamp>;
+          if (i.applicability === "NEEDS_REVIEW") return <Stamp tone="warn">Profile review</Stamp>;
+          return <Stamp tone="plain">Pending</Stamp>;
+        },
+      },
+      {
+        id: "memo",
+        header: "Evidence Memo",
+        sortValue: (i) => i.evidenceNote ?? "",
+        cell: (i) => (
+          <span className="text-[13.5px] text-ink-2">
+            {i.evidenceNote ? i.evidenceNote : <span className="italic text-ink-3">Click to add →</span>}
+          </span>
+        ),
+      },
+    ],
+    [activeVersionNumber]
+  );
 
   if (!intel) return null;
-  const { notice, activeVersion, baselineVersion, readinessSummary: s } = intel;
+  const { notice, activeVersion, baselineVersion, readinessSummary: s, timeline } = intel;
   const tag = versionTag(activeVersion.versionLabel);
   const baselineTag = versionTag(baselineVersion.versionLabel);
 
@@ -455,6 +555,23 @@ export function MyPlanScreen() {
       (i.applicability === "DOES_NOT_APPLY" || (!i.requirement.mandatory && i.applicability === "APPLIES"))
   );
   const pendingRequired = required.filter((i) => i.readinessStatus !== "completed");
+  const checkedCount = s.items.filter((i) => i.readinessStatus === "completed" || i.readinessStatus === "needs_reverification").length;
+
+  const referralUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/my-plan?dossier=${encodeURIComponent(notice.id)}&ver=${activeVersion.versionNumber}&cgpa=${profile.cgpa}&level=${profile.studyLevel}&year=${profile.currentYear}`
+      : `/my-plan?dossier=${encodeURIComponent(notice.id)}&ver=${activeVersion.versionNumber}`;
+
+  const copyReferralLink = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      void navigator.clipboard.writeText(referralUrl);
+    }
+    toast({
+      tone: "ok",
+      title: "Referral & handoff link copied",
+      body: `Share with a classmate or campus desk to open ${shortTitle(notice)} (${tag}).`,
+    });
+  };
 
   const entries = (items: EvaluatedRequirementItem[]) => (
     <ul className="mt-4">
@@ -482,15 +599,62 @@ export function MyPlanScreen() {
               Your checklist for each dossier, re-read every time a version, a check or your context changes.
             </p>
           </div>
-          <Button
-            onClick={() => {
-              setPrintedAt(formatDate(new Date().toISOString().slice(0, 10)));
-              setTimeout(() => window.print(), 60);
-            }}
-          >
-            <Printer className="h-4 w-4" /> Print a readiness slip
-          </Button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button variant="ghost" onClick={() => setShareOpen((v) => !v)}>
+              <Share2 className="h-4 w-4" /> Share / Handoff link
+            </Button>
+            <Button
+              onClick={() => {
+                setPrintedAt(formatDate(new Date().toISOString().slice(0, 10)));
+                setTimeout(() => window.print(), 60);
+              }}
+            >
+              <Printer className="h-4 w-4" /> Print a readiness slip
+            </Button>
+          </div>
         </header>
+
+        {/* Civic Referral & Peer Handoff Card */}
+        <AnimatePresence initial={false}>
+          {shareOpen && (
+            <motion.section
+              initial={{ opacity: 0, height: 0, marginTop: 0 }}
+              animate={{ opacity: 1, height: "auto", marginTop: 24 }}
+              exit={{ opacity: 0, height: 0, marginTop: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              aria-label="Civic referral and advocate handoff link"
+              className="overflow-hidden rounded-[var(--r-panel)] bg-paper shadow-[inset_0_0_0_1px_var(--hair)]"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
+                <div className="max-w-[60ch]">
+                  <p className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold uppercase tracking-wider text-ink-3">
+                    <Sparkles className="h-3.5 w-3.5 text-warn" />
+                    Civic Referral &amp; Peer Checklist Handoff
+                  </p>
+                  <p className="mt-1 text-[16px] leading-snug text-ink-2">
+                    Send this pre-configured link to a classmate, family helper, or campus legal-aid desk so they open{" "}
+                    <strong className="font-semibold text-ink">
+                      {shortTitle(notice)} ({tag})
+                    </strong>{" "}
+                    with your academic context ready.
+                  </p>
+                </div>
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                  <input
+                    type="text"
+                    readOnly
+                    value={referralUrl}
+                    aria-label="Shareable preparation plan URL"
+                    className="code h-10 min-w-[240px] flex-1 rounded-[var(--r-control)] bg-ground px-3 text-[13.5px] text-ink-2 shadow-[inset_0_0_0_1px_var(--hair)] sm:w-[340px]"
+                  />
+                  <Button size="sm" onClick={copyReferralLink}>
+                    <Copy className="h-3.5 w-3.5" /> Copy referral link
+                  </Button>
+                </div>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
 
         <div role="tablist" aria-label="Dossier" className="scroll-x -mx-4 mt-10 flex gap-4 px-4 pb-6 pt-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-4">
           {all.map((d) => {
@@ -525,6 +689,22 @@ export function MyPlanScreen() {
               </button>
             );
           })}
+        </div>
+
+        <div data-rail="Counter & folder plan" className="mt-8">
+          <MotionGraph
+            dossierTitle={shortTitle(notice)}
+            versionLabel={tag}
+            timeline={timeline}
+            sharedGroups={sharedGroups}
+            activeNoticeId={notice.id}
+            onInspectRequirement={(reqId) => openInspector({ noticeId: notice.id, requirementId: reqId })}
+            onSelectDossierRequirement={(nId, reqId) => {
+              withViewTransition(() => setActiveNotice(nId));
+              openInspector({ noticeId: nId, requirementId: reqId });
+            }}
+            defaultTab="sequence"
+          />
         </div>
 
         <div className="mt-12 grid grid-cols-1 items-start gap-x-14 gap-y-12 lg:grid-cols-[minmax(320px,370px)_minmax(0,1fr)] lg:grid-rows-[auto_1fr] xl:gap-x-20">
@@ -566,7 +746,7 @@ export function MyPlanScreen() {
             {hydrated && (
               <div
                 className={cn(
-                  "mb-14 rounded-[var(--r-panel)] px-6 py-5 transition-colors duration-500",
+                  "mb-6 rounded-[var(--r-panel)] px-6 py-5 transition-colors duration-500",
                   stale.length ? "bg-warn/[0.09]" : pendingRequired.length ? "bg-ink/[0.045]" : "bg-ok/[0.09]"
                 )}
               >
@@ -583,29 +763,154 @@ export function MyPlanScreen() {
               </div>
             )}
 
-            <Group id="g-stale" title="Changed under you" meta={`${stale.length} to re-verify`} items={stale.length}>
-              {entries(stale)}
-            </Group>
-            <Group
-              id="g-required"
-              title="Required"
-              meta={`${required.filter((i) => i.readinessStatus === "completed").length} of ${required.length} checked`}
-              items={required.length || 1}
-            >
-              {required.length ? (
-                entries(required)
-              ) : (
-                <p className="mt-6 border-t border-ink/15 pt-6 text-[18px] italic text-ink-3">
-                  No required item applies to your current context in {tag}.
-                </p>
-              )}
-            </Group>
-            <Group id="g-review" title="Needs your profile" meta={`${review.length} undecided`} items={review.length}>
-              {entries(review)}
-            </Group>
-            <Group id="g-optional" title="Optional, or not for you" meta="never block readiness" items={optional.length}>
-              {entries(optional)}
-            </Group>
+            {/* Bulk Actions Bar & View Switcher */}
+            {hydrated && (
+              <div
+                role="toolbar"
+                aria-label="Bulk checklist actions and view mode"
+                className="mb-12 flex flex-wrap items-center justify-between gap-3 rounded-[var(--r-card)] bg-paper px-4 py-3 shadow-[inset_0_0_0_1px_var(--hair)]"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  {stale.length > 0 && (
+                    <Button
+                      variant="warn"
+                      size="sm"
+                      onClick={() => {
+                        withViewTransition(() =>
+                          reverifyBulk(
+                            notice.id,
+                            stale.map((i) => i.requirement),
+                            activeVersion.versionNumber
+                          )
+                        );
+                        toast({
+                          tone: "ok",
+                          title: `Re-verified ${plural(stale.length, "stale item")}`,
+                          body: `All changed items now hold against ${tag}.`,
+                        });
+                      }}
+                    >
+                      <CheckCheck className="h-3.5 w-3.5" />
+                      Re-verify all stale ({stale.length})
+                    </Button>
+                  )}
+
+                  {pendingRequired.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        withViewTransition(() =>
+                          checkAllRequired(
+                            notice.id,
+                            pendingRequired.map((i) => i.requirement),
+                            activeVersion.versionNumber
+                          )
+                        );
+                        toast({
+                          tone: "ok",
+                          title: `Verified ${plural(pendingRequired.length, "required item")}`,
+                          body: `All applicable required items in ${shortTitle(notice)} marked ready.`,
+                        });
+                      }}
+                    >
+                      <CheckCheck className="h-3.5 w-3.5" />
+                      Check all required ({pendingRequired.length})
+                    </Button>
+                  )}
+
+                  {checkedCount > 0 && (
+                    <ConfirmAction
+                      label={
+                        <>
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>Clear checks ({checkedCount})</span>
+                        </>
+                      }
+                      confirmLabel="Confirm clear?"
+                      ariaLabel="Clear all dossier checks"
+                      onConfirm={() => {
+                        withViewTransition(() => clearDossierChecks(notice.id));
+                        toast({
+                          tone: "warn",
+                          title: "Dossier checks cleared",
+                          body: `Reset ${plural(checkedCount, "check")} on ${shortTitle(notice)}.`,
+                        });
+                      }}
+                    />
+                  )}
+                </div>
+
+                <div
+                  role="group"
+                  aria-label="Checklist display mode"
+                  className="inline-flex rounded-[var(--r-control)] bg-ground p-1 shadow-[inset_0_0_0_1px_var(--hair)]"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={viewMode === "checklist"}
+                    onClick={() => setViewMode("checklist")}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-[5px] px-2.5 py-1 text-[13.5px] transition-colors",
+                      viewMode === "checklist" ? "bg-ink font-medium text-ground" : "text-ink-2 hover:text-ink"
+                    )}
+                  >
+                    <LayoutList className="h-3.5 w-3.5" />
+                    Checklist
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={viewMode === "table"}
+                    onClick={() => setViewMode("table")}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-[5px] px-2.5 py-1 text-[13.5px] transition-colors",
+                      viewMode === "table" ? "bg-ink font-medium text-ground" : "text-ink-2 hover:text-ink"
+                    )}
+                  >
+                    <Table2 className="h-3.5 w-3.5" />
+                    Table
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {viewMode === "table" ? (
+              <LedgerDataTable
+                caption={`Sortable requirements table for ${shortTitle(notice)}`}
+                columns={planTableColumns}
+                rows={s.items}
+                getRowKey={(i) => i.requirement.id}
+                defaultSortColumnId="leadDays"
+                defaultSortDirection="desc"
+                onRowClick={(i) => openInspector({ noticeId: notice.id, requirementId: i.requirement.id })}
+              />
+            ) : (
+              <>
+                <Group id="g-stale" title="Changed under you" meta={`${stale.length} to re-verify`} items={stale.length}>
+                  {entries(stale)}
+                </Group>
+                <Group
+                  id="g-required"
+                  title="Required"
+                  meta={`${required.filter((i) => i.readinessStatus === "completed").length} of ${required.length} checked`}
+                  items={required.length || 1}
+                >
+                  {required.length ? (
+                    entries(required)
+                  ) : (
+                    <p className="mt-6 border-t border-ink/15 pt-6 text-[18px] italic text-ink-3">
+                      No required item applies to your current context in {tag}.
+                    </p>
+                  )}
+                </Group>
+                <Group id="g-review" title="Needs your profile" meta={`${review.length} undecided`} items={review.length}>
+                  {entries(review)}
+                </Group>
+                <Group id="g-optional" title="Optional, or not for you" meta="never block readiness" items={optional.length}>
+                  {entries(optional)}
+                </Group>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { compareNoticeVersions } from "@/domain";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
-import { useAllIntelligence, useDossierIntelligence, type DossierIntelligence } from "@/hooks/useDossierIntelligence";
+import { useAllIntelligence, useDossierIntelligence, useSharedFolderGroups, type DossierIntelligence } from "@/hooks/useDossierIntelligence";
 import { HERO_NOTICE_ID, useScenarios } from "@/hooks/useScenarios";
 import { chapterOf } from "@/lib/chapters";
 import { CATEGORY_LABEL, formatDate, isConsequential, isCosmetic, plural, shortTitle, versionTag } from "@/lib/format";
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Bleed, Container, Page } from "@/components/ui/Page";
 import { NoticeObject } from "@/components/ui/NoticeObject";
 import { Deadline } from "@/components/ui/Deadline";
+import { MotionGraph } from "@/components/ui/MotionGraph";
 import { ActionRowLink, ActionRows, AnimatedNumber, Button, Meter, Skel, buttonClass, withViewTransition } from "@/components/ui/primitives";
 import { Redline } from "@/components/ledger/parts";
 
@@ -146,6 +147,11 @@ function ActionList({ intel }: { intel: DossierIntelligence }) {
                   <p className="text-[15.5px] italic text-warn">Changed under you</p>
                   <h3 className="mt-1 text-[21px] font-semibold leading-snug">{i.requirement.title}</h3>
                   <Redline className="mt-3" before={i.previouslyVerifiedValue ?? ""} after={i.requirement.value} fromTag="yours" toTag={tag} />
+                  {i.evidenceNote && (
+                    <p className="mt-2 text-[14.5px] text-ink-2">
+                      Your v1.0 folder memo: <span className="font-medium text-ink">&ldquo;{i.evidenceNote}&rdquo;</span>
+                    </p>
+                  )}
                   <Button
                     variant="warn"
                     size="sm"
@@ -196,6 +202,46 @@ function ActionList({ intel }: { intel: DossierIntelligence }) {
             </ol>
           )}
         </div>
+      </Container>
+    </section>
+  );
+}
+
+/* ───────────── Counter-Day & Shared Physical Folder Flow ───────────── */
+
+function CounterAndFolderSection({ intel }: { intel: DossierIntelligence }) {
+  const sharedGroups = useSharedFolderGroups();
+  const setActiveNotice = useNiyomStore((s) => s.setActiveNotice);
+  const openInspector = useUiStore((s) => s.openInspector);
+  const { notice, activeVersion, timeline } = intel;
+
+  return (
+    <section data-rail="One folder, four desks" aria-labelledby="folder-flow" className="pt-28">
+      <Container>
+        <div className="mb-10 grid grid-cols-1 gap-x-16 gap-y-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
+          <h2 id="folder-flow" className="display text-[34px] sm:text-[40px]">
+            One physical folder. Four institutional desks.
+          </h2>
+          <p className="text-[18px] leading-relaxed text-ink-2 lg:pt-2">
+            An applicant rarely prepares for one circular in isolation. NIYOM maps the working-day counter sequence for{" "}
+            <span className="font-semibold text-ink">{shortTitle(notice)}</span> (accounting for closed Friday–Saturday counters) and links
+            your attested marksheets, enrollment proofs, and payment vouchers across all four dossiers by strictness tier.
+          </p>
+        </div>
+
+        <MotionGraph
+          dossierTitle={shortTitle(notice)}
+          versionLabel={versionTag(activeVersion.versionLabel)}
+          timeline={timeline}
+          sharedGroups={sharedGroups}
+          activeNoticeId={notice.id}
+          onInspectRequirement={(reqId) => openInspector({ noticeId: notice.id, requirementId: reqId })}
+          onSelectDossierRequirement={(nId, reqId) => {
+            withViewTransition(() => setActiveNotice(nId));
+            openInspector({ noticeId: nId, requirementId: reqId });
+          }}
+          defaultTab="sequence"
+        />
       </Container>
     </section>
   );
@@ -380,6 +426,7 @@ export function OverviewScreen() {
     <Page bleed>
       <Hero intel={intel} />
       <ActionList intel={intel} />
+      <CounterAndFolderSection intel={intel} />
       <NoiseFilter />
       <Chapters />
     </Page>

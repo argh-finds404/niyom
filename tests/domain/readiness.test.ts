@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { evaluateApplicability } from "../../src/domain/readiness/applicability";
 import { calculateNoticeReadiness } from "../../src/domain/readiness/calculate";
+import {
+  computePreparationTimeline,
+  computeSharedFolderGroups,
+  findCrossDossierLinksForRequirement,
+  subtractWorkingDays,
+} from "../../src/domain/readiness/intelligence";
 import { ApplicantProfile, ReadinessRecord, Requirement } from "../../src/domain/types";
 import {
   DEFAULT_APPLICANT_PROFILE,
@@ -86,6 +92,7 @@ describe("calculateNoticeReadiness & Stale Check Invalidation", () => {
         checked: true,
         verifiedAgainstValue: r.value,
         verifiedAgainstVersion: 1,
+        note: `Memo for ${r.id}`,
         updatedAt: new Date().toISOString(),
       }));
 
@@ -100,6 +107,9 @@ describe("calculateNoticeReadiness & Stale Check Invalidation", () => {
     expect(summary.percentage).toBe(100);
     expect(summary.completedMandatoryCount).toBe(summary.totalApplicableMandatoryCount);
     expect(summary.staleReverificationCount).toBe(0);
+    expect(summary.items.find((i) => i.requirement.id === "req-transcript")?.evidenceNote).toBe(
+      "Memo for req-transcript"
+    );
   });
 
   it("invalidates stale checks and transitions to needs_reverification when v2.0 modifies specification", () => {
@@ -194,3 +204,39 @@ describe("calculateNoticeReadiness & Stale Check Invalidation", () => {
   });
 });
 
+describe("Counter-Day Timeline & Cross-Dossier Shared Folder Intelligence", () => {
+  const meritNotice = SEED_NOTICES.find((n) => n.id === "notice-merit-2026")!;
+
+  it("skips Bangladesh Friday and Saturday weekends when subtracting working days", () => {
+    // 2026-11-15 is a Sunday. Subtracting 1 working day should skip Saturday (14) and Friday (13) -> Thursday 2026-11-12.
+    expect(subtractWorkingDays("2026-11-15", 1)).toBe("2026-11-12");
+  });
+
+  it("computes 3-stage counter preparation timeline and latest safe start date", () => {
+    const noticeV2 = { ...meritNotice, activeVersionNumber: 3 };
+    const summary = calculateNoticeReadiness(noticeV2, DEFAULT_APPLICANT_PROFILE, [], []);
+    const timeline = computePreparationTimeline(noticeV2, summary, new Date("2026-11-05T00:00:00Z"));
+
+    expect(timeline.deadlineDate).toBe("2026-11-25");
+    expect(timeline.totalLeadDays).toBeGreaterThan(0);
+    expect(timeline.remainingLeadDays).toBe(timeline.totalLeadDays);
+    expect(timeline.latestSafeStartDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(timeline.steps.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("links shared physical folder documents across dossiers by strictness rank", () => {
+    const groups = computeSharedFolderGroups(SEED_NOTICES, DEFAULT_APPLICANT_PROFILE, []);
+    expect(groups).toHaveLength(3);
+
+    const links = findCrossDossierLinksForRequirement(
+      "notice-merit-2026",
+      "req-transcript",
+      SEED_NOTICES,
+      DEFAULT_APPLICANT_PROFILE,
+      []
+    );
+    expect(links).not.toBeNull();
+    expect(links?.group.groupId).toBe("folder-academic-standing");
+    expect(links?.others.length).toBeGreaterThanOrEqual(2);
+  });
+});

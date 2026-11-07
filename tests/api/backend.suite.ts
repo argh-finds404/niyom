@@ -6,6 +6,7 @@ import { GET as getDossiers } from "../../src/app/api/dossiers/route";
 import { GET as getDossierById, PATCH as patchDossierById } from "../../src/app/api/dossiers/[id]/route";
 import { GET as getCompare } from "../../src/app/api/compare/route";
 import { POST as postEvaluate } from "../../src/app/api/evaluate/route";
+import { GET as getPlan } from "../../src/app/api/plan/route";
 import { GET as getReports, POST as postReport, PATCH as patchReport } from "../../src/app/api/reports/route";
 import { GET as getState, PUT as putState, DELETE as deleteState } from "../../src/app/api/state/route";
 import { GET as getCalendar } from "../../src/app/api/calendar/[id]/route";
@@ -34,12 +35,13 @@ export function req(
   });
 }
 export const params = (id: string) => ({ params: Promise.resolve({ id }) });
-export const record = (requirementId: string, checked: boolean, updatedAt: string, value = "x", version = 1) => ({
+export const record = (requirementId: string, checked: boolean, updatedAt: string, value = "x", version = 1, note?: string) => ({
   noticeId: "notice-merit-2026",
   requirementId,
   checked,
   verifiedAgainstValue: value,
   verifiedAgainstVersion: version,
+  ...(note ? { note } : {}),
   updatedAt,
 });
 export const report = {
@@ -82,19 +84,27 @@ export function backendSuite(persistence: "memory" | "postgres") {
   });
 
   describe(`[${persistence}] /api/state is private to each device`, () => {
-    it("never shows one device's profile or checks to another", async () => {
+    it("never shows one device's profile or checks to another, and preserves personal evidence notes", async () => {
       await putState(
         req("/api/state", {
           method: "PUT",
           device: A,
-          body: { profile: { ...DEFAULT_APPLICANT_PROFILE, cgpa: 3.92 }, readinessRecords: [record("req-transcript", true, "2026-11-01T10:00:00Z")] },
+          body: {
+            profile: { ...DEFAULT_APPLICANT_PROFILE, cgpa: 3.92 },
+            readinessRecords: [record("req-transcript", true, "2026-11-01T10:00:00Z", "x", 1, "Controller Reg #CE/884")],
+          },
         })
       );
       const a = await (await getState(req("/api/state", { device: A }))).json();
       const b = await (await getState(req("/api/state", { device: B }))).json();
       expect(a.profile.cgpa).toBe(3.92);
       expect(a.readinessRecords).toHaveLength(1);
-      expect(a.readinessRecords[0]).toMatchObject({ requirementId: "req-transcript", checked: true, updatedAt: "2026-11-01T10:00:00.000Z" });
+      expect(a.readinessRecords[0]).toMatchObject({
+        requirementId: "req-transcript",
+        checked: true,
+        note: "Controller Reg #CE/884",
+        updatedAt: "2026-11-01T10:00:00.000Z",
+      });
       expect(b.profile.cgpa).toBe(DEFAULT_APPLICANT_PROFILE.cgpa);
       expect(b.readinessRecords).toHaveLength(0);
     });
@@ -181,7 +191,7 @@ export function backendSuite(persistence: "memory" | "postgres") {
     });
   });
 
-  describe(`[${persistence}] dossiers, compare, evaluate, calendar`, () => {
+  describe(`[${persistence}] dossiers, compare, evaluate, plan, calendar`, () => {
     it("serves dossiers with the version each device follows", async () => {
       const list = await (await getDossiers(req("/api/dossiers", { device: A }))).json();
       expect(list.count).toBe(4);
@@ -236,7 +246,9 @@ export function backendSuite(persistence: "memory" | "postgres") {
               noticeId: "notice-merit-2026",
               versionNumber: 3,
               profile: DEFAULT_APPLICANT_PROFILE,
-              readinessRecords: [record("req-transcript", true, "2026-11-01T00:00:00Z", "Standard photocopy of latest semester marksheet")],
+              readinessRecords: [
+                record("req-transcript", true, "2026-11-01T00:00:00Z", "Standard photocopy of latest semester marksheet", 1, "Sem 7 Copy"),
+              ],
             },
           })
         )
@@ -244,6 +256,8 @@ export function backendSuite(persistence: "memory" | "postgres") {
       expect(explicit.readiness.staleChecks).toBe(1);
       expect(explicit.readiness.sourceConflicts).toBe(1);
       expect(explicit.version.specChecksum).toMatch(/^sha256:[0-9a-f]{12}$/);
+      expect(explicit.timeline.deadlineDate).toBe("2026-11-25");
+      expect(explicit.requirements.find((r: { id: string }) => r.id === "req-transcript").evidenceNote).toBe("Sem 7 Copy");
 
       // Saved state: device A drops below the CGPA cut-off.
       await putState(req("/api/state", { method: "PUT", device: A, body: { profile: { ...DEFAULT_APPLICANT_PROFILE, cgpa: 3.1 } } }));
@@ -258,6 +272,17 @@ export function backendSuite(persistence: "memory" | "postgres") {
       expect(invalid.status).toBe(400);
       expect((await postEvaluate(req("/api/evaluate", { method: "POST", body: { noticeId: "nope" } }))).status).toBe(404);
       expect((await postEvaluate(req("/api/evaluate", { method: "POST", body: { noticeId: "notice-merit-2026", versionNumber: 42 } }))).status).toBe(400);
+    });
+
+    it("computes counter-day schedule and shared physical folder groups via GET /api/plan", async () => {
+      const res = await getPlan(req("/api/plan?notice=notice-merit-2026", { device: A }));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.noticeId).toBe("notice-merit-2026");
+      expect(body.timeline.totalLeadDays).toBeGreaterThan(0);
+      expect(body.timeline.latestSafeStartDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(body.sharedFolderGroups).toHaveLength(3);
+      expect((await getPlan(req("/api/plan?notice=unknown", { device: A }))).status).toBe(404);
     });
 
     it("serves the deadline as an iCalendar file", async () => {
@@ -367,7 +392,7 @@ export function backendSuite(persistence: "memory" | "postgres") {
       expect(state.headers.get("Cache-Control")).toBe("no-store");
 
       const index = await (await getIndex(req("/api"))).json();
-      expect(index.endpoints.length).toBeGreaterThanOrEqual(13);
+      expect(index.endpoints.length).toBeGreaterThanOrEqual(14);
 
       const missing = await getUnknown(req("/api/nothing-here"));
       expect(missing.status).toBe(404);

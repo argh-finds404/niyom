@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { LayoutList, Search, Table2, X } from "lucide-react";
 import type { DossierCategory } from "@/domain/types";
 import { compareNoticeVersions } from "@/domain";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useAllIntelligence, type DossierIntelligence } from "@/hooks/useDossierIntelligence";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { CATEGORY_LABEL, FRESHNESS_LABEL, formatDate, isConsequential, plural, shortTitle, versionTag } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Page } from "@/components/ui/Page";
 import { CoverTile } from "@/components/ui/CoverTile";
+import { LedgerDataTable, type LedgerColumn } from "@/components/ui/LedgerDataTable";
 import { ActionRowLink, ActionRows, Button, Skel, Stamp } from "@/components/ui/primitives";
 
 type Toggle = "conflict" | "changes" | "community";
@@ -20,6 +23,12 @@ const TOGGLES: { id: Toggle; label: string }[] = [
   { id: "community", label: "Has field reports" },
 ];
 const CATEGORIES = ["all", "scholarship", "digital_service", "internship", "public_procedure"] as const;
+
+interface DirectoryRow {
+  intel: DossierIntelligence;
+  hits: string[];
+  changes: number;
+}
 
 function matches(intel: DossierIntelligence, q: string): string[] | null {
   if (!q) return [];
@@ -38,13 +47,16 @@ function matches(intel: DossierIntelligence, q: string): string[] | null {
 }
 
 export function ExploreScreen() {
+  const router = useRouter();
   const all = useAllIntelligence();
   const hydrated = useNiyomStore((s) => s.isHydrated);
   const setActiveNotice = useNiyomStore((s) => s.setActiveNotice);
   const [query, setQuery] = useState("");
+  const { debouncedValue: debouncedQuery, isPending: isDebouncing } = useDebouncedValue(query, 180);
   const [category, setCategory] = useState<DossierCategory | "all">("all");
   const [toggles, setToggles] = useState<Set<Toggle>>(new Set());
-  const q = query.trim().toLowerCase();
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const q = debouncedQuery.trim().toLowerCase();
 
   const rows = useMemo(
     () =>
@@ -56,11 +68,11 @@ export function ExploreScreen() {
             versions.length > 1 ? compareNoticeVersions(versions[0], versions[versions.length - 1]).filter(isConsequential).length : 0;
           return { intel, hits: matches(intel, q), changes };
         })
-        .filter(({ intel, hits, changes }) => {
-          if (hits === null) return false;
-          if (toggles.has("conflict") && intel.readinessSummary.conflictCount === 0) return false;
-          if (toggles.has("changes") && changes === 0) return false;
-          if (toggles.has("community") && intel.readinessSummary.communityReportCount === 0) return false;
+        .filter((r): r is DirectoryRow => {
+          if (r.hits === null) return false;
+          if (toggles.has("conflict") && r.intel.readinessSummary.conflictCount === 0) return false;
+          if (toggles.has("changes") && r.changes === 0) return false;
+          if (toggles.has("community") && r.intel.readinessSummary.communityReportCount === 0) return false;
           return true;
         }),
     [all, q, toggles]
@@ -74,6 +86,76 @@ export function ExploreScreen() {
     setCategory("all");
     setToggles(new Set());
   };
+
+  const tableColumns = useMemo<LedgerColumn<DirectoryRow>[]>(
+    () => [
+      {
+        id: "title",
+        header: "Dossier & Institution",
+        sortValue: (r) => shortTitle(r.intel.notice),
+        cell: (r) => (
+          <div>
+            <p className="font-semibold text-ink">{shortTitle(r.intel.notice)}</p>
+            <p className="mt-0.5 text-[13.5px] text-ink-3">{r.intel.notice.institution}</p>
+          </div>
+        ),
+      },
+      {
+        id: "category",
+        header: "Category",
+        sortValue: (r) => CATEGORY_LABEL[r.intel.notice.category],
+        cell: (r) => <span className="text-[14px] text-ink-2">{CATEGORY_LABEL[r.intel.notice.category]}</span>,
+      },
+      {
+        id: "version",
+        header: "Active Version",
+        sortValue: (r) => r.intel.activeVersion.versionNumber,
+        cell: (r) => <Stamp tone="plain">{versionTag(r.intel.activeVersion.versionLabel)}</Stamp>,
+      },
+      {
+        id: "changes",
+        header: "Changes",
+        align: "right",
+        sortValue: (r) => r.changes,
+        cell: (r) => (
+          <span className={cn("font-medium", r.changes > 0 ? "text-crit" : "text-ink-3")}>
+            {r.changes}
+          </span>
+        ),
+      },
+      {
+        id: "conflicts",
+        header: "Conflicts",
+        align: "right",
+        sortValue: (r) => r.intel.readinessSummary.conflictCount,
+        cell: (r) => (
+          <span className={cn("font-medium", r.intel.readinessSummary.conflictCount > 0 ? "text-crit" : "text-ink-3")}>
+            {r.intel.readinessSummary.conflictCount}
+          </span>
+        ),
+      },
+      {
+        id: "reports",
+        header: "Field Reports",
+        align: "right",
+        sortValue: (r) => r.intel.readinessSummary.communityReportCount,
+        cell: (r) => <span className="text-ink-2">{r.intel.readinessSummary.communityReportCount}</span>,
+      },
+      {
+        id: "readiness",
+        header: "Readiness",
+        align: "right",
+        sortValue: (r) => r.intel.readinessSummary.percentage,
+        cell: (r) =>
+          hydrated ? (
+            <span className="font-semibold text-ink">{r.intel.readinessSummary.percentage}%</span>
+          ) : (
+            <Skel className="ml-auto h-4 w-12" />
+          ),
+      },
+    ],
+    [hydrated]
+  );
 
   return (
     <Page>
@@ -162,14 +244,48 @@ export function ExploreScreen() {
         </div>
       </div>
 
-      <p className="mt-10 text-[16px] italic text-ink-3" aria-live="polite">
-        {visible.length} of {all.length} dossiers{filtered && " match"}
-        {filtered && (
-          <button type="button" onClick={clear} className="ml-4 not-italic text-ink underline decoration-ink/30 underline-offset-4 hover:decoration-ink">
-            Clear filters
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-4">
+        <p className="text-[16px] italic text-ink-3" aria-live="polite">
+          {visible.length} of {all.length} dossiers{filtered && " match"}
+          {isDebouncing && <span className="ml-2 text-[14px] text-ink-3">· Filtering…</span>}
+          {filtered && (
+            <button type="button" onClick={clear} className="ml-4 not-italic text-ink underline decoration-ink/30 underline-offset-4 hover:decoration-ink">
+              Clear filters
+            </button>
+          )}
+        </p>
+
+        <div
+          role="group"
+          aria-label="Directory layout"
+          className="inline-flex rounded-[var(--r-control)] bg-paper p-1 shadow-[inset_0_0_0_1px_var(--hair)]"
+        >
+          <button
+            type="button"
+            aria-pressed={viewMode === "cards"}
+            onClick={() => setViewMode("cards")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-[5px] px-3 py-1 text-[14px] transition-colors",
+              viewMode === "cards" ? "bg-ink font-medium text-ground" : "text-ink-2 hover:text-ink"
+            )}
+          >
+            <LayoutList className="h-3.5 w-3.5" />
+            Cards
           </button>
-        )}
-      </p>
+          <button
+            type="button"
+            aria-pressed={viewMode === "table"}
+            onClick={() => setViewMode("table")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-[5px] px-3 py-1 text-[14px] transition-colors",
+              viewMode === "table" ? "bg-ink font-medium text-ground" : "text-ink-2 hover:text-ink"
+            )}
+          >
+            <Table2 className="h-3.5 w-3.5" />
+            Ledger table
+          </button>
+        </div>
+      </div>
 
       {visible.length === 0 ? (
         <div className="mt-4 rounded-[var(--r-panel)] bg-ink/[0.035] py-20 text-center">
@@ -182,6 +298,21 @@ export function ExploreScreen() {
           <Button className="mt-8" onClick={clear}>
             Clear filters
           </Button>
+        </div>
+      ) : viewMode === "table" ? (
+        <div className="mt-6">
+          <LedgerDataTable
+            caption="Sortable directory of NIYOM public dossiers"
+            columns={tableColumns}
+            rows={visible}
+            getRowKey={(r) => r.intel.notice.id}
+            defaultSortColumnId="readiness"
+            defaultSortDirection="desc"
+            onRowClick={(r) => {
+              setActiveNotice(r.intel.notice.id);
+              router.push(`/notice/${r.intel.notice.id}`);
+            }}
+          />
         </div>
       ) : (
         <ul className="mt-4">

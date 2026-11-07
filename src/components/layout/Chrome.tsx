@@ -12,6 +12,7 @@ import { useAllIntelligence, useDossierIntelligence } from "@/hooks/useDossierIn
 import { chapterOf } from "@/lib/chapters";
 import { isConsequential, shortTitle, versionTag } from "@/lib/format";
 import { Button, Overlay, Skel } from "@/components/ui/primitives";
+import { ConfirmAction } from "@/components/ui/ConfirmAction";
 import { Logo, Mark } from "@/components/ui/Logo";
 import { AlertsButton } from "./Alerts";
 
@@ -115,16 +116,16 @@ function WalkthroughButton() {
         <p className="px-3 pb-1 pt-3 text-[15px] italic text-[#6b655b]">Three steps show what NIYOM does</p>
         <WalkthroughList onDone={() => document.getElementById("walkthrough")?.hidePopover()} />
         <div className="mt-1 flex justify-end border-t border-[#1c1b19]/10 px-2 pt-2">
-          <button
-            type="button"
-            onClick={() => {
+          <ConfirmAction
+            label="Reset the demo"
+            confirmLabel="Confirm reset?"
+            ariaLabel="Reset the demo"
+            onConfirm={() => {
               s.reset();
               document.getElementById("walkthrough")?.hidePopover();
             }}
-            className="rounded-[var(--r-control)] px-3 py-1.5 text-[14.5px] italic text-[#6b655b] transition-colors hover:bg-[#1c1b19]/[0.05] hover:text-[#1c1b19]"
-          >
-            Reset the demo
-          </button>
+            className="italic text-[#6b655b] hover:bg-[#1c1b19]/[0.05] hover:text-[#1c1b19]"
+          />
         </div>
       </div>
     </>

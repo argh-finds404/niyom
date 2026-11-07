@@ -2,7 +2,14 @@
 
 import { useMemo } from "react";
 import { useNiyomStore } from "./useNiyomStore";
-import { calculateNoticeReadiness, compareNoticeVersions } from "@/domain";
+import {
+  calculateNoticeReadiness,
+  compareNoticeVersions,
+  computePreparationTimeline,
+  computeSharedFolderGroups,
+  type PreparationTimeline,
+  type SharedFolderGroup,
+} from "@/domain";
 import type { Notice, NoticeVersion, ReadinessSummary, RequirementChange } from "@/domain/types";
 
 export interface DossierIntelligence {
@@ -13,6 +20,8 @@ export interface DossierIntelligence {
   readinessSummary: ReadinessSummary;
   /** Baseline (first version) → active version. Empty when the baseline is active. */
   versionChanges: RequirementChange[];
+  /** Counter-day lead-time, latest safe start date, and 3-stage preparation sequence. */
+  timeline: PreparationTimeline;
 }
 
 export function versionOf(notice: Notice, versionNumber: number): NoticeVersion {
@@ -27,18 +36,20 @@ export function deriveIntelligence(
   const activeVersion = versionOf(notice, notice.activeVersionNumber);
   const idx = notice.versions.indexOf(activeVersion);
   const baselineVersion = notice.versions[0];
+  const readinessSummary = calculateNoticeReadiness(
+    notice,
+    state.profile,
+    state.readinessRecords,
+    state.communityReports
+  );
   return {
     notice,
     activeVersion,
     previousVersion: idx > 0 ? notice.versions[idx - 1] : null,
     baselineVersion,
-    readinessSummary: calculateNoticeReadiness(
-      notice,
-      state.profile,
-      state.readinessRecords,
-      state.communityReports
-    ),
+    readinessSummary,
     versionChanges: idx > 0 ? compareNoticeVersions(baselineVersion, activeVersion) : [],
+    timeline: computePreparationTimeline(notice, readinessSummary),
   };
 }
 
@@ -67,5 +78,17 @@ export function useAllIntelligence(): DossierIntelligence[] {
   return useMemo(
     () => notices.map((n) => deriveIntelligence(n, { profile, readinessRecords, communityReports })),
     [notices, profile, readinessRecords, communityReports]
+  );
+}
+
+/** Shared physical folder equivalence groups across all 4 dossiers. */
+export function useSharedFolderGroups(): SharedFolderGroup[] {
+  const notices = useNiyomStore((s) => s.notices);
+  const profile = useNiyomStore((s) => s.profile);
+  const readinessRecords = useNiyomStore((s) => s.readinessRecords);
+
+  return useMemo(
+    () => computeSharedFolderGroups(notices, profile, readinessRecords),
+    [notices, profile, readinessRecords]
   );
 }

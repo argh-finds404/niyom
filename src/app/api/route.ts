@@ -7,6 +7,7 @@ const ENDPOINTS = [
   { method: "PATCH", path: "/api/dossiers/:id", does: "Change the version your checklist follows" },
   { method: "GET", path: "/api/compare?notice=…&from=1&to=3", does: "The deterministic redline between two published versions" },
   { method: "POST", path: "/api/evaluate", does: "Readiness for a profile and checks (yours by default)" },
+  { method: "GET", path: "/api/plan?notice=…", does: "Counter-day preparation schedule, safe start date & cross-dossier document reuse" },
   { method: "GET", path: "/api/state", does: "Your profile, checks, followed versions and readiness" },
   { method: "PUT", path: "/api/state", does: "Save your profile, checks and versions (checks merge by updatedAt)" },
   { method: "DELETE", path: "/api/state", does: "Reset your own state; nobody else's data or reports" },

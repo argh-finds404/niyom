@@ -5,4 +5,4 @@ export * from "./comparison/deadlines";
 export * from "./comparison/compare";
 export * from "./readiness/applicability";
 export * from "./readiness/calculate";
-
+export * from "./readiness/intelligence";

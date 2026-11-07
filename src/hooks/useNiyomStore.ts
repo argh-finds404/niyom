@@ -51,6 +51,10 @@ export interface NiyomStoreState {
   setNoticeActiveVersion: (noticeId: string, versionNumber: number) => void;
   toggleRequirementCheck: (noticeId: string, requirement: Requirement, versionNumber: number) => void;
   reverifyRequirement: (noticeId: string, requirement: Requirement, versionNumber: number) => void;
+  reverifyBulk: (noticeId: string, requirements: Requirement[], versionNumber: number) => void;
+  checkAllRequired: (noticeId: string, requirements: Requirement[], versionNumber: number) => void;
+  clearDossierChecks: (noticeId: string) => void;
+  updateRequirementNote: (noticeId: string, requirement: Requirement, versionNumber: number, note: string) => void;
   updateProfile: (partial: Partial<ApplicantProfile>) => void;
   /** Keeps the report on this device; uploads it unless `upload` is false (the caller already tried). */
   submitCommunityReport: (report: SubmittedReportPayload | ServerReport, options?: { upload?: boolean }) => void;
@@ -61,6 +65,15 @@ export interface NiyomStoreState {
 }
 
 const HERO = "notice-merit-2026";
+const SEED_V1_NOTES: Record<string, string> = {
+  "req-transcript": "Latest marksheet copy — folder pocket #1",
+  "req-student-id": "Student ID #2022-1-60-042 (both sides)",
+  "req-income-cert": "Union Parishad Chairman Cert #UP-2026-118",
+  "req-recommendation": "Signed by Prof. M. Rahman (CSE Dept Head)",
+  "req-cgpa": "CGPA 3.72 / 4.00 verified on transcript",
+  "req-deadline": "Calendar reminder set for 12 Nov 2026",
+  "req-submission-mode": "Portal login ID: NIYOM-2026-88412",
+};
 const isBrowser = () => typeof window !== "undefined" && typeof fetch !== "undefined";
 const now = () => new Date().toISOString();
 const stripFlags = ({ yours, confirmedByYou, ...r }: ServerReport): CommunityReport => {
@@ -333,6 +346,7 @@ export const useNiyomStore = create<NiyomStoreState>((set, get) => {
         checked: existing ? !existing.checked : true,
         verifiedAgainstValue: requirement.value,
         verifiedAgainstVersion: versionNumber,
+        ...(existing?.note ? { note: existing.note } : {}),
         updatedAt: now(),
       };
       set({ readinessRecords: mergeRecords(get().readinessRecords, [record]), demoScenarioStage: "custom" });
@@ -341,17 +355,106 @@ export const useNiyomStore = create<NiyomStoreState>((set, get) => {
     },
 
     reverifyRequirement: (noticeId, requirement, versionNumber) => {
+      const existing = get().readinessRecords.find((r) => r.noticeId === noticeId && r.requirementId === requirement.id);
       const record: ReadinessRecord = {
         noticeId,
         requirementId: requirement.id,
         checked: true,
         verifiedAgainstValue: requirement.value,
         verifiedAgainstVersion: versionNumber,
+        ...(existing?.note ? { note: existing.note } : {}),
         updatedAt: now(),
       };
       set({ readinessRecords: mergeRecords(get().readinessRecords, [record]), demoScenarioStage: "custom" });
       void persistReadinessRecord(record);
       push({ readinessRecords: [record], demoScenarioStage: "custom" });
+    },
+
+    reverifyBulk: (noticeId, requirements, versionNumber) => {
+      if (requirements.length === 0) return;
+      const state = get();
+      const existingMap = new Map(
+        state.readinessRecords
+          .filter((r) => r.noticeId === noticeId)
+          .map((r) => [r.requirementId, r])
+      );
+      const at = now();
+      const batch: ReadinessRecord[] = requirements.map((req) => {
+        const existing = existingMap.get(req.id);
+        return {
+          noticeId,
+          requirementId: req.id,
+          checked: true,
+          verifiedAgainstValue: req.value,
+          verifiedAgainstVersion: versionNumber,
+          ...(existing?.note ? { note: existing.note } : {}),
+          updatedAt: at,
+        };
+      });
+      const records = mergeRecords(state.readinessRecords, batch);
+      set({ readinessRecords: records, demoScenarioStage: "custom" });
+      void persistAllReadinessRecords(records);
+      push({ readinessRecords: batch, demoScenarioStage: "custom" });
+    },
+
+    checkAllRequired: (noticeId, requirements, versionNumber) => {
+      if (requirements.length === 0) return;
+      const state = get();
+      const existingMap = new Map(
+        state.readinessRecords
+          .filter((r) => r.noticeId === noticeId)
+          .map((r) => [r.requirementId, r])
+      );
+      const at = now();
+      const batch: ReadinessRecord[] = requirements.map((req) => {
+        const existing = existingMap.get(req.id);
+        return {
+          noticeId,
+          requirementId: req.id,
+          checked: true,
+          verifiedAgainstValue: req.value,
+          verifiedAgainstVersion: versionNumber,
+          ...(existing?.note ? { note: existing.note } : {}),
+          updatedAt: at,
+        };
+      });
+      const records = mergeRecords(state.readinessRecords, batch);
+      set({ readinessRecords: records, demoScenarioStage: "custom" });
+      void persistAllReadinessRecords(records);
+      push({ readinessRecords: batch, demoScenarioStage: "custom" });
+    },
+
+    clearDossierChecks: (noticeId) => {
+      const state = get();
+      const toClear = state.readinessRecords.filter((r) => r.noticeId === noticeId && r.checked);
+      if (toClear.length === 0) return;
+      const at = now();
+      const batch: ReadinessRecord[] = toClear.map((r) => ({
+        ...r,
+        checked: false,
+        updatedAt: at,
+      }));
+      const records = mergeRecords(state.readinessRecords, batch);
+      set({ readinessRecords: records, demoScenarioStage: "custom" });
+      void persistAllReadinessRecords(records);
+      push({ readinessRecords: batch, demoScenarioStage: "custom" });
+    },
+
+    updateRequirementNote: (noticeId, requirement, versionNumber, note) => {
+      const existing = get().readinessRecords.find((r) => r.noticeId === noticeId && r.requirementId === requirement.id);
+      const trimmed = note.trim().slice(0, 240);
+      const record: ReadinessRecord = {
+        noticeId,
+        requirementId: requirement.id,
+        checked: existing ? existing.checked : false,
+        verifiedAgainstValue: existing ? existing.verifiedAgainstValue : requirement.value,
+        verifiedAgainstVersion: existing ? existing.verifiedAgainstVersion : versionNumber,
+        ...(trimmed ? { note: trimmed } : {}),
+        updatedAt: now(),
+      };
+      set({ readinessRecords: mergeRecords(get().readinessRecords, [record]) });
+      void persistReadinessRecord(record);
+      push({ readinessRecords: [record] });
     },
 
     updateProfile: (partial) => {
@@ -435,10 +538,22 @@ export const useNiyomStore = create<NiyomStoreState>((set, get) => {
       const state = get();
       const notice = state.notices.find((n) => n.id === HERO) ?? SEED_NOTICES[0];
       const v1 = notice.versions.find((v) => v.versionNumber === 1) ?? notice.versions[0];
+      const mine = new Map(state.readinessRecords.filter((r) => r.noticeId === HERO).map((r) => [r.requirementId, r]));
       const at = now();
-      const checked = v1.requirements
+      const checked: ReadinessRecord[] = v1.requirements
         .filter((r) => r.mandatory)
-        .map((r) => ({ noticeId: notice.id, requirementId: r.id, checked: true, verifiedAgainstValue: r.value, verifiedAgainstVersion: 1, updatedAt: at }));
+        .map((r) => {
+          const note = mine.get(r.id)?.note ?? SEED_V1_NOTES[r.id];
+          return {
+            noticeId: notice.id,
+            requirementId: r.id,
+            checked: true,
+            verifiedAgainstValue: r.value,
+            verifiedAgainstVersion: 1,
+            ...(note ? { note } : {}),
+            updatedAt: at,
+          };
+        });
       // Other Merit Grant checks are cleared explicitly so the server forgets them too.
       const ids = new Set(checked.map((r) => r.requirementId));
       const cleared = state.readinessRecords
@@ -465,13 +580,22 @@ export const useNiyomStore = create<NiyomStoreState>((set, get) => {
       const mine = new Map(state.readinessRecords.filter((r) => r.noticeId === HERO).map((r) => [r.requirementId, r]));
       const at = now();
       // You had prepared every v1.0 item; keep what you already checked, fill in the rest against v1.0.
-      const baseline = v1.requirements
+      const baseline: ReadinessRecord[] = v1.requirements
         .filter((r) => r.mandatory)
         .map((r) => {
           const existing = mine.get(r.id);
+          const note = existing?.note ?? SEED_V1_NOTES[r.id];
           return existing?.checked
-            ? existing
-            : { noticeId: notice.id, requirementId: r.id, checked: true, verifiedAgainstValue: r.value, verifiedAgainstVersion: 1, updatedAt: at };
+            ? { ...existing, ...(note ? { note } : {}) }
+            : {
+                noticeId: notice.id,
+                requirementId: r.id,
+                checked: true,
+                verifiedAgainstValue: r.value,
+                verifiedAgainstVersion: 1,
+                ...(note ? { note } : {}),
+                updatedAt: at,
+              };
         });
       const records = mergeRecords(state.readinessRecords, baseline);
 

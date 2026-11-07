@@ -65,6 +65,7 @@ export const readinessRecordSchema = z.object({
   verifiedAgainstValue: z.string().max(2000),
   verifiedAgainstVersion: z.number().int().positive().max(1000),
   updatedAt: isoTimestamp,
+  note: z.string().trim().max(240, "Note must be 240 characters or fewer").optional(),
 });
 
 export type ReadinessRecordInput = z.infer<typeof readinessRecordSchema>;

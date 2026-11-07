@@ -1,13 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { findCrossDossierLinksForRequirement, getRequirementOfficeMeta } from "@/domain";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
 import { useDossierIntelligence } from "@/hooks/useDossierIntelligence";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { APPLICABILITY_LABEL, REVIEW_LABEL, shortTitle, versionTag } from "@/lib/format";
 import { chapterOf } from "@/lib/chapters";
 import { cn } from "@/lib/utils";
 import { Button, Check, Overlay, Stamp, withViewTransition } from "@/components/ui/primitives";
+import { ConfirmAction } from "@/components/ui/ConfirmAction";
 import { Deadline } from "@/components/ui/Deadline";
 import { ConflictNote, EvidenceQuote, FieldReports, Redline, ruleExplanation } from "./parts";
 
@@ -23,13 +27,29 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 /** Everything about one requirement, resolved live from ids so it never shows a stale version. */
 function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirementId: string; onClose: () => void }) {
   const intel = useDossierIntelligence(noticeId);
+  const notices = useNiyomStore((s) => s.notices);
   const hydrated = useNiyomStore((s) => s.isHydrated);
   const profile = useNiyomStore((s) => s.profile);
+  const readinessRecords = useNiyomStore((s) => s.readinessRecords);
   const toggle = useNiyomStore((s) => s.toggleRequirementCheck);
   const reverify = useNiyomStore((s) => s.reverifyRequirement);
+  const updateNote = useNiyomStore((s) => s.updateRequirementNote);
+  const setActiveNotice = useNiyomStore((s) => s.setActiveNotice);
   const openDrawer = useUiStore((s) => s.openDrawer);
+  const openInspector = useUiStore((s) => s.openInspector);
   const toast = useUiStore((s) => s.toast);
   const item = intel?.readinessSummary.items.find((i) => i.requirement.id === requirementId);
+  const [draftNote, setDraftNote] = useState(item?.evidenceNote ?? "");
+  const { debouncedValue: debouncedNote, isPending: isSavingNote } = useDebouncedValue(draftNote, 450);
+
+  // Live debounced auto-save when the user pauses typing in the evidence memo field.
+  useEffect(() => {
+    if (!intel || !item) return;
+    const saved = item.evidenceNote ?? "";
+    const next = debouncedNote.trim();
+    if (next === saved) return;
+    updateNote(intel.notice.id, item.requirement, intel.activeVersion.versionNumber, next);
+  }, [debouncedNote, intel, item, updateNote]);
 
   if (!intel || !item) {
     return (
@@ -48,6 +68,18 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
   const baseTag = versionTag(baselineVersion.versionLabel);
   const stale = item.readinessStatus === "needs_reverification";
   const changed = item.latestChange && item.latestChange.type === "modified" && item.latestChange.previous;
+  const officeMeta = getRequirementOfficeMeta(r.id, activeVersion.versionNumber);
+  const sharedLinks = findCrossDossierLinksForRequirement(notice.id, r.id, notices, profile, readinessRecords);
+
+  const saveMemo = (value: string) => {
+    setDraftNote(value);
+    updateNote(notice.id, r, activeVersion.versionNumber, value);
+    toast({
+      tone: "ok",
+      title: value.trim() ? "Evidence memo saved" : "Evidence memo cleared",
+      body: value.trim() ? `Recorded for ${r.code} (${tag}).` : `Cleared memo on ${r.code}.`,
+    });
+  };
 
   return (
     <div data-chapter={chapterOf(notice.id)} className="ov-right flex h-full flex-col overflow-hidden bg-ground text-ink sm:rounded-l-[var(--r-panel)]">
@@ -72,6 +104,12 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
       <div className="min-h-0 flex-1 overflow-y-auto px-7 pb-10">
         <Section title="What the notice requires">
           <p className="text-[19px] leading-relaxed">{r.value}</p>
+          <p className="mt-3 text-[15px] text-ink-2 num">
+            Counter: <strong className="font-semibold text-ink">{officeMeta.office}</strong> · Stage {officeMeta.stage} ({officeMeta.stageLabel}) ·{" "}
+            {officeMeta.leadDays === 0
+              ? "Same-day / digital check"
+              : `~${officeMeta.leadDays} working day${officeMeta.leadDays === 1 ? "" : "s"} (Sun–Thu)`}
+          </p>
           {r.category === "deadline" && <Deadline notice={notice} className="mt-4" />}
         </Section>
 
@@ -121,6 +159,109 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
             {item.applicability === "NEEDS_REVIEW" && " NIYOM never assumes you are ineligible when a field is missing."}
           </p>
         </Section>
+
+        <Section title="Your evidence memo (printed on readiness slip)">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[15px] leading-relaxed text-ink-2">
+              Record your certificate serial, attestation register number, or payment TrxID so you know which physical paper in your folder satisfies{" "}
+              <span className="font-medium text-ink">{r.code}</span>.
+            </p>
+            <span className="text-[12.5px] italic text-ink-3" aria-live="polite">
+              {isSavingNote ? "Auto-saving…" : item.evidenceNote ? "Saved to folder" : ""}
+            </span>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              maxLength={240}
+              value={draftNote}
+              onChange={(e) => setDraftNote(e.target.value)}
+              placeholder={officeMeta.memoPlaceholder}
+              aria-label="Evidence memo"
+              className="h-10 min-w-[200px] flex-1 rounded-[var(--r-control)] bg-paper px-3.5 text-[15px] text-ink placeholder:text-ink-3 shadow-[inset_0_0_0_1px_var(--hair)] focus:outline-none focus:ring-2 focus:ring-ink/30"
+            />
+            <Button
+              size="sm"
+              onClick={() => saveMemo(draftNote)}
+              disabled={draftNote.trim() === (item.evidenceNote ?? "")}
+            >
+              Save memo
+            </Button>
+            {item.evidenceNote && (
+              <ConfirmAction
+                label="Clear"
+                confirmLabel="Confirm clear?"
+                ariaLabel="Clear evidence memo"
+                onConfirm={() => saveMemo("")}
+                className="h-9 px-3 text-[14px]"
+              />
+            )}
+          </div>
+          {officeMeta.memoPresets.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <span className="text-[13px] text-ink-3">Quick presets:</span>
+              {officeMeta.memoPresets.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => saveMemo(preset)}
+                  className="rounded-full bg-paper px-2.5 py-0.5 text-[13px] text-ink-2 shadow-[inset_0_0_0_1px_var(--hair)] transition-colors hover:bg-sunken hover:text-ink"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+          )}
+        </Section>
+
+        {sharedLinks && sharedLinks.others.length > 0 && (
+          <Section title={`Shared physical folder: ${sharedLinks.group.folderItemTitle}`}>
+            <p className="text-[15px] leading-relaxed text-ink-2">
+              This document belongs to your <strong className="font-semibold text-ink">{sharedLinks.group.folderItemTitle}</strong> bundle (Tier{" "}
+              {sharedLinks.self.strictnessRank}: {sharedLinks.self.strictnessLabel}). Here is how it connects across your other dossiers:
+            </p>
+            <ul className="mt-3 space-y-2">
+              {sharedLinks.others.map((peer) => {
+                const satisfiesPeer =
+                  sharedLinks.self.status === "completed" &&
+                  sharedLinks.self.strictnessRank >= peer.strictnessRank;
+                const satisfiedByPeer =
+                  peer.status === "completed" &&
+                  peer.strictnessRank >= sharedLinks.self.strictnessRank;
+                return (
+                  <li
+                    key={`${peer.noticeId}-${peer.requirementId}`}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--r-card)] bg-paper p-3 shadow-[inset_0_0_0_1px_var(--hair)]"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[15px] font-semibold text-ink">
+                        {peer.noticeTitle} · <span className="font-normal text-ink-2">{peer.title}</span>
+                      </p>
+                      <p className="mt-0.5 text-[13.5px] text-ink-3">
+                        Tier {peer.strictnessRank}: {peer.strictnessLabel}
+                        {satisfiesPeer
+                          ? " · Your verified copy here already meets this standard"
+                          : satisfiedByPeer
+                            ? " · Already satisfied by your verified copy in that dossier"
+                            : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveNotice(peer.noticeId);
+                        openInspector({ noticeId: peer.noticeId, requirementId: peer.requirementId });
+                      }}
+                      className="shrink-0 text-[13.5px] font-semibold text-ink underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+                    >
+                      Inspect ({peer.status === "completed" ? "Ready" : peer.status === "needs_reverification" ? "Stale" : "Pending"}) →
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        )}
 
         {changed && (
           <Section title={`What changed since ${baseTag}`}>

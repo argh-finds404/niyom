@@ -11,10 +11,11 @@ import {
   specChecksum,
   withDevice,
 } from "@/app/api/_lib";
+import { computePreparationTimeline, getRequirementOfficeMeta } from "@/domain";
 
 /**
  * POST /api/evaluate — runs the readiness engine on the server for one dossier: applicability for this
- * profile, stale checks, conflicts, live field reports and the change set since the first version.
+ * profile, stale checks, conflicts, live field reports, counter-day preparation schedule, and the change set.
  * Profile and checks may be sent explicitly; otherwise this device's saved state is used.
  */
 export const POST = route(async (request) => {
@@ -35,6 +36,7 @@ export const POST = route(async (request) => {
 
   const notice = { ...base, activeVersionNumber: active };
   const summary = calculateNoticeReadiness(notice, profile, readinessRecords, await getReports(device.id, { noticeId }));
+  const timeline = computePreparationTimeline(notice, summary);
   const changes = active > base.versions[0].versionNumber ? compareNoticeVersions(base.versions[0], version) : [];
 
   return withDevice(
@@ -55,18 +57,32 @@ export const POST = route(async (request) => {
         sourceConflicts: summary.conflictCount,
         fieldReports: summary.communityReportCount,
       },
-      requirements: summary.items.map((i) => ({
-        id: i.requirement.id,
-        code: i.requirement.code,
-        title: i.requirement.title,
-        mandatory: i.requirement.mandatory,
-        applicability: i.applicability,
-        reason: i.applicabilityReason,
-        status: i.readinessStatus,
-        previouslyVerifiedValue: i.previouslyVerifiedValue ?? null,
-        changedSinceFirstVersion: i.latestChange ? i.latestChange.type !== "unchanged" : false,
-        fieldReportCount: i.communityReports.length,
-      })),
+      timeline: {
+        deadlineDate: timeline.deadlineDate,
+        totalLeadDays: timeline.totalLeadDays,
+        remainingLeadDays: timeline.remainingLeadDays,
+        latestSafeStartDate: timeline.latestSafeStartDate,
+        bufferDaysRemaining: timeline.bufferDaysRemaining,
+        scheduleStatus: timeline.scheduleStatus,
+      },
+      requirements: summary.items.map((i) => {
+        const meta = getRequirementOfficeMeta(i.requirement.id, active);
+        return {
+          id: i.requirement.id,
+          code: i.requirement.code,
+          title: i.requirement.title,
+          mandatory: i.requirement.mandatory,
+          applicability: i.applicability,
+          reason: i.applicabilityReason,
+          status: i.readinessStatus,
+          evidenceNote: i.evidenceNote ?? null,
+          office: meta.office,
+          leadDays: meta.leadDays,
+          previouslyVerifiedValue: i.previouslyVerifiedValue ?? null,
+          changedSinceFirstVersion: i.latestChange ? i.latestChange.type !== "unchanged" : false,
+          fieldReportCount: i.communityReports.length,
+        };
+      }),
       consequentialChangesSinceFirst: changes.filter(isConsequentialChange).length,
       engine: "niyom-domain (deterministic, no AI)",
     }),
