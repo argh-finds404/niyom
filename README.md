@@ -13,12 +13,13 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-1. Open the **Overview**. You start on the Merit Grant 2026 at v1.0.
-2. Click **Watch a corrigendum arrive**. The demo assumes you had already prepared every required item against v1.0. Version 2.0 then drops onto the notice stack, readiness settles at 57%, and the bell shows an alert: *4 changes that matter, 2 of your checks are now stale*.
-3. Open the bell and choose **Review v1.0 to v2.0**. The redline shows exactly which words changed.
+1. Open the **Overview**. You start on the Merit Grant 2026 as originally published. Scroll past the hero: the real corrigendum plays out word by word. Struck words fade, new words arrive under a marker, and readiness falls from 100% to 57%. Keep scrolling: each dossier's chapter opens its notice like a bundle of papers, landing on the version page and a live checklist. The rail on the left swells around the section you are reading.
+2. Click **Watch a corrigendum arrive**. The demo assumes you had already prepared every required item against the original notice. Update 2 then drops onto the notice stack, readiness settles at 57%, and the bell shows an alert: *4 changes that matter, 2 of your checks are now stale*.
+3. Open the bell and choose **See what changed in Update 2**. The redline shows exactly which words changed.
 4. Click **I have the updated document** on the stale items. They move to *Required* and readiness climbs back.
 5. In **My plan**, set household income to **I don't know**. The income certificate moves to *Needs your profile*, because NIYOM never assumes you are ineligible when a field is missing.
-6. Open **The railway refund case** from *Walkthrough*. Two official sources give different refund timelines, and applicants' field reports are shown separately from policy.
+6. Still in **My plan**, read **When to start**. It adds up the working days your remaining papers need at the offices that issue them, skips the Friday–Saturday weekend, and gives the latest safe start date. Open any paper to leave a short note, such as a receipt number; it prints on the readiness slip.
+7. Open **The railway refund case** from *Walkthrough*. Two official sources give different refund timelines, and applicants' field reports are shown separately from policy.
 
 The **Walkthrough** menu (top right) runs the same steps and can reset the demo.
 
@@ -26,7 +27,7 @@ The **Walkthrough** menu (top right) runs the same steps and can reset the demo.
 
 | Feature | The problem it solves |
 | --- | --- |
-| Versioned notices with a word-level redline | Lets you see what actually changed between two published versions |
+| Versioned notices with a word-level redline | Lets you see what actually changed between two published versions; on the Overview it plays as you scroll |
 | Noise filter | Contact-detail edits are marked cosmetic and never touch your checklist |
 | Stale-check detection | A tick records the wording you prepared against, and goes stale when that wording changes |
 | **Follow and alerts** (bell) | Tells you when a notice you follow is revised and which of your checks it broke |
@@ -34,8 +35,13 @@ The **Walkthrough** menu (top right) runs the same steps and can reset the demo.
 | Applicability per profile | Shows whether a rule applies to you, with the comparison it used (for example, CGPA 3.78 ≥ 3.25) |
 | Cross-source conflicts | When two official documents disagree, quotes both and gives a safe course of action |
 | Field reports | Shows what applicants report from counters, kept apart from official policy and marked pending verification |
-| Printable readiness slip | Gives you a one-page checklist to keep with your physical documents |
-| Works offline, says where your work is | Changes are saved on the device and sent when the connection returns; the footer shows when they were last backed up |
+| **When to start** | Adds up the working days each remaining paper needs at its office (closed Friday and Saturday) and gives the latest safe start date, then lists the visits in order |
+| Papers from the same place | Groups papers that different dossiers need from your university, so one campus visit collects them. Each still needs its own check |
+| A note on each item | Records which paper in your folder covers a requirement (a serial or receipt number); saved as you type and printed on the slip |
+| Printable readiness slip | Gives you a one-page checklist, with your notes, to keep with your physical documents |
+| Share this checklist | Copies a link that opens a dossier at a given version. It carries nothing about you |
+| Table view and bulk actions | Sort requirements or dossiers in a table; re-verify every stale item at once, or clear a dossier behind a two-step confirm |
+| Works offline, says where your work is | Changes are saved on the device and sent when the connection returns; the Live API panel shows whether the server has them |
 
 ## On phones and tablets
 
@@ -67,8 +73,9 @@ Yes. Next.js Route Handlers run the same deterministic engine on the server, ove
 | GET | `/api/health` | Liveness, storage mode and ledger statistics (no applicant data); `503` when the database is unreachable |
 | GET | `/api/dossiers?category=…` | Every dossier, the version you follow, report counts |
 | GET / PATCH | `/api/dossiers/:id` | One dossier's ledger and reports / change the version your checklist follows |
-| GET | `/api/compare?notice=…&from=1&to=3` | The deterministic redline between two versions |
-| POST | `/api/evaluate` | Readiness for a profile and checks (yours by default) |
+| GET | `/api/compare?notice=…&from=1&to=3` | The deterministic redline between two versions, with word-level diffs, deadline shifts in days and a SHA-256 fingerprint of each version |
+| POST | `/api/evaluate` | Readiness for a profile and checks (yours by default), with each item's office and lead time and the start-date plan |
+| GET | `/api/plan?notice=…` | When to start: lead days, latest safe start date, visits in order, and papers other dossiers need from the same place |
 | GET / PUT / DELETE | `/api/state` | Your profile, checks and versions / save them (merged by `updatedAt`) / reset yours |
 | GET / POST / PATCH | `/api/reports` | List reports / file one (`201`) / confirm one (`403` own, `409` twice) |
 | GET | `/api/calendar/:id` | The deadline as an iCalendar file |
@@ -98,7 +105,7 @@ Yes. Next.js Route Handlers run the same deterministic engine on the server, ove
 - After a network error, `5xx` or `429`, the queue retries with backoff (or after `Retry-After`), when the connection returns, and when you come back to the tab.
 - Reports filed offline are uploaded on the next sync.
 
-The footer shows whether your work is backed up, and **Live API** shows the server's JSON for the dossier on screen.
+**Live API** shows whether your work is backed up, and the server's JSON for the dossier on screen. Versions are named in plain words throughout the interface (*Original*, *Update 1*, *Update 2*); the API keeps the official labels such as `v2.0 Major Corrigendum`.
 
 ### Storage
 
@@ -127,7 +134,8 @@ Without a database, a serverless host keeps the ledger in memory per instance, a
 ## Architecture
 
 ```
-src/domain/            Pure, tested engine: version comparison, deadline deltas, applicability, readiness
+src/domain/            Pure, tested engine: version comparison, deadline deltas, applicability, readiness,
+                       and the start-date plan (readiness/intelligence.ts)
 src/data/seed/         Four illustrative dossiers (scholarship, railway refund, internship, e-passport)
 src/data/persistence/  db.ts: IndexedDB in the browser
                        server-db.ts: the server ledger (picks Postgres or a JSON file)
@@ -153,4 +161,4 @@ The Postgres tests use PGlite, a real Postgres compiled to WebAssembly, through 
 
 Design rationale is in [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md).
 
-*The dossiers are an illustrative dataset prepared for the Credosis Phase 02 demonstration. They are not official notices.*
+*The dossiers, office names and lead times are an illustrative dataset prepared for the Credosis Phase 02 demonstration. They are not official notices.*

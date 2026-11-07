@@ -11,9 +11,9 @@ The interface follows the structure and motion of [Stripe Press](https://press.s
 | One serif family everywhere, with italic sub-labels | **Newsreader** for everything. Its optical sizes give tight display cuts and open text cuts. Requirement codes are set in small caps. |
 | A five-stop pastel wash behind the hero | A **monsoon-morning wash** (lilac, mist blue, paddy green, lotus pink) that runs under the top bar and the rail. |
 | Each book is a chapter with its own solid colour field | **Each dossier is a chapter** (forest, night violet, olive and navy, maroon). Working pages take a light tint of that colour, and the page fades between tints when you switch dossiers. |
-| A fixed left rail with one tick per section. The active tick is at full opacity, the rest at about 30%. Ticks take the colour of the section underneath and stagger in on load. Hovering reveals every section's title as a contents list. | **The same rail, tracking your scroll on every page.** Sections opt in with `data-rail`. A single indicator slides to the section you are reading and lengthens as you read through it. Ticks swell under the pointer, and hovering the rail fans out all section titles as a contents list. Ticks stagger in on each page and take the colour of whatever lies beneath. It also works on phones (ticks only). |
+| A fixed left rail with one tick per section. The active tick is at full opacity, the rest at about 30%. Ticks take the colour of the section underneath and stagger in on load. Hovering reveals every section's title as a contents list. | **The same rail, breathing with your scroll on every page.** Sections opt in with `data-rail`. Each section is a long line that rests at 40% of its length; the lines swell around the place you are reading, so the swell travels down the column as you scroll. Under the pointer the swell follows the pointer instead, like a dock. The current section's line is bold, and its name appears beside it in bold serif for a moment when you enter it, or beside whichever line you point at. Ticks take the colour of whatever lies beneath, the film scene and the footer included. Lengths change with `transform: scaleX`, so the swell never causes layout. |
 | A 3D book in perspective, rising into its section | **Each dossier as its own object, stacked by version.** The Merit Grant is an official circular with a seal. The railway refund is a stack of e-tickets with a perforated stub, a masked PNR and a barcode. The ICT fellowship is a code window whose changed lines light up, with a blinking caret. The e-passport is a passport booklet whose cover swings open on hover to show the checklist inside. Every object uses its dossier's colours. The stack deals in the first time it is seen, floats on the hero, fans out under the pointer and turns as its section scrolls by. When a newer version arrives, its sheet drops on top and its stamp lands ("Corrigendum", "Revised terms", "Revised", "Amended"). |
-| A stroke-drawn monogram | **An "N" engraved as three parallel strokes**: the same rule written three times, one per version. It draws itself on load and is used for the favicon (`app/icon.svg`) and Apple icon (`app/apple-icon.tsx`). |
+| A stroke-drawn monogram, on a notice sheet | **An "N" engraved as three parallel strokes**: the same rule written three times, one per version. It draws itself on load in the top bar, beside the wordmark and নিয়ম. The app icon puts it on a forest notice sheet with a folded corner. The Apple icon (`app/apple-icon.tsx`) keeps the engraving. The favicon (`app/icon.svg`) uses a solid N, because hairlines turn to mush at 16px. The footer closes every page with the promise, every way back in, the sync status and the name set large. |
 
 ## 2. From the pasted review: what was taken and what was left
 
@@ -52,11 +52,16 @@ Motion either responds to what you do or marks one deliberate moment.
 | Page change | React 19.3 `<ViewTransition>`: the old page fades out and the new one rises in. The notice stack morphs from the overview into its specification page. |
 | Re-verify, check, profile change | Runs inside the View Transition API, so items glide to their new group while the readiness figure counts up. |
 | Corrigendum arrives | The sheet drops on top, the stamp lands, the bell rings once, and a soft toast appears. |
+| The corrigendum, word by word (Overview) | A pinned scene the length of a few screens. Scrolling rewrites each change that matters, from v1.0 to v2.0, one word at a time: a line is drawn through each struck word, then each new word arrives under a marker stroke, and the date reads "15 → 25 Nov 2026". The clauses run like a teleprompter: each holds the centre, then the column glides to the next, with neighbours faint above and below, so no frame is empty or overlapping. Progress eases towards the scroll position instead of snapping to it. It plays like an old picture show: a dark screen with a sepia cast, film sprockets down both edges that run with the scroll, grain and a slight projector flicker (both only while the scene is on screen), and a vignette. The text rolls up slowly like credits, and the readiness figure sits in a silent-film title card, rolling into place each time it changes. Readiness falls 100 → 83 → 71 → 57, and the Corrigendum stamp lands. The engine computes each figure by applying the changes one at a time. Screen readers get the same story as a list. With Reduce Motion, all of it is shown at once. |
+| Books that open | In each Overview chapter the notice object opens once 40% of it is in view, and stays open while you read. Circulars and passports open sideways on their spine; tickets and code windows flip up like a pad. The cover swings over first, then three pages riffle over after it one by one, like a bundle of papers being leafed through. Every page that turns carries print: the notice's own clauses, numbered, in the office's words, with a page number. The last page lands flat on top, with no gap at the spine, and carries the version and what it changed. The open spread faces the reader square-on and lies back a few degrees, as on a desk. It has page edges, a shaded gutter and a soft shadow on the band beneath it. The other versions in the stack fade away as it opens. The page beneath lists what that version asks of you, ticked live from your own checks. A passport opens on its maroon endpapers onto a guilloche visa page. On a dossier's page the book is pinned, opens once it is seen, and turns slowly as you scroll, as on a Stripe Press book page. |
+| Papers, not dials | Readiness is shown as the papers themselves: one small sheet per required item, solid when checked, amber when stale, outlined when missing (hover for its name), beside the figure in serif. It replaced a ring that read as a generic dashboard widget. |
+| The top bar | A full bar at the top of the page. Once you scroll, it tucks into a floating, blurred pill. Its height never changes, so nothing below it moves. |
+| Type that drifts | নিয়ম, engraved large behind the hero's paper stack, and each chapter's version number set huge behind its band. Both drift with native scroll-driven animations, so there is no JavaScript and they stay still where unsupported. |
 | Notifications | System-style banners (see section 9). They drop in on a soft spring, pause while read, and lift away. Swipe up or sideways to dismiss. |
 | Panels and popovers | Native `<dialog>` and the popover API. Both animate open and closed, and Esc and click-outside work. |
 | Reduced motion | Every animation has a fallback. The scroll and pointer loops do not run at all. |
 
-Scroll-linked motion writes CSS variables from one `requestAnimationFrame` loop, so scrolling never re-renders React.
+Scroll-linked motion writes CSS variables from one `requestAnimationFrame` loop, so scrolling never re-renders React. The corrigendum scene listens only while it is on screen. A page at rest does no work: no videos, no canvas, zero layouts while idle.
 
 ## 5. Numbers are computed, never typed
 
@@ -107,7 +112,7 @@ The findings and fixes from both passes are listed in [`reviews/backend-audit.md
 
 **Footer.** The line naming the demonstration programme was replaced with two that matter to the person using the site:
 
-- **Where their work is.** For example: saved on this device and backed up to the server at 14:32, or offline and waiting to send. The Live API dot shows the same state instead of always being green.
+- **The next closing date** across every dossier, with a calendar file. (It replaced an earlier sync-status line; the Live API panel still shows whether the server has your work.)
 - **The disclaimer.** The dossiers are sample cases and are not official; confirm with the issuing office.
 
 ## 9. Phones, tablets and notifications
@@ -144,18 +149,48 @@ The findings and fixes from both passes are listed in [`reviews/backend-audit.md
 - **"You're offline"** is a pinned banner of the same kind, removed when the connection returns.
 - **Fixed on the way:** with Reduce Motion on, the global rule shortened every animation to 1ms, including the old notification timer, so notifications vanished instantly. The timer is now exempt.
 
-## 10. Departures from the brief's visual spec
+## 10. Planning features: what was kept, changed and removed
+
+A later pass (by another agent) added planning features, a 3D/video background and several generic SaaS patterns. Each was measured and checked against the data.
+
+**Kept, and made honest:**
+
+- **When to start.** Each paper's office and lead time, added up over Bangladesh working days (Sunday to Thursday), gives the latest safe start date (`/api/plan`). Only papers and procedures count; eligibility rules and the deadline itself are not office visits. My plan leads with one sentence ("Start by Sunday, 08 Nov 2026") and lists the visits in order. Overview shows only that sentence. Anything that depends on today's date renders after hydration.
+- **Papers from the same place.** The original grouping put a transcript with a CGPA cut-off and a CV, and a passport fee challan with a railway refund wallet, then marked papers "covered by your folder". A student could skip a real requirement on that advice. Now only documents are grouped, by the office that issues them (your university). The copy says plainly that each still needs its own check.
+- **A note on each item.** Saved as you type, and also when the panel closes mid-sentence. Suggested notes no longer contain invented serial or transaction numbers.
+- **Share this checklist.** The link no longer carries the reader's CGPA, study level and year. It applies once on arrival, and only for a published version. Before this fix, every later change snapped the page back to the linked dossier.
+- **Table views, a guarded "Clear checks", "Re-verify all stale".** Table headers are in sentence case, and Framer Motion is gone from the rows.
+
+**Removed:**
+
+- **The ambient background:** a Three.js wireframe grid, two looping videos and a 619 KB poster behind every page. On a phone it cost about 1 MB of downloads and kept a WebGL loop running. It added about 160 layouts and 320 style recalculations per 5 idle seconds. One video showed unrelated text ("Prototype and test") through the page. Removing it took the home page's JavaScript from 478 KB to 283 KB, and idle work to zero.
+- **"Check all required".** One tap claimed every document was prepared, which made the readiness figure meaningless.
+- **The motion graph:** an auto-advancing reel with a video thumbnail and sparkle icons. It is replaced by the static, readable plan above.
+- **`three`, `framer-motion` and `motion`.** One motion system again: CSS keyframes and view transitions.
+
+**Fixed on the way:** 24 uses of `var(--hair)`, plus `bg-sunken` and `bg-info`, pointed at tokens that did not exist, so those borders and fills never rendered. They are now defined from the ink.
+
+## 11. Departures from the brief's visual spec
 
 - **Fonts:** Geist, Geist Mono and Inter are replaced by Newsreader, plus Noto Serif Bengali for নিয়ম only.
 - **Colours:** the brief's forest green is kept as the Merit Grant chapter. Status inks (ok, warn, critical) are kept and pass AA on every tint.
 - **Navigation:** the numbered tab masthead and the dark scenario bar are replaced by the rail, a quiet top bar and the Walkthrough popover.
 - **Corrigendum banner:** replaced by the alerts bell and a soft notification.
 
-## 11. Known limits
+## 12. Known limits
 
-- The dossiers are an illustrative, hand-modelled dataset. A real product needs an ingestion pipeline: from notice PDF to structured requirements, with human review.
+- The dossiers, offices and lead times are an illustrative, hand-modelled dataset. A real product needs an ingestion pipeline: from notice PDF to structured requirements, with human review.
 - There are no accounts. Your state is saved on the server for your device, but it does not move between devices. Alerts appear in the app; nothing is pushed by SMS or email.
 - Rate limits are counted in each server instance's memory, so with several instances a determined client gets a few more requests through. A shared store such as Redis would make them exact.
 - One person with several browsers counts as several devices when confirming a report. Blocking that by IP would also block students who share a campus or mobile-carrier address, so the threshold (three devices) and the per-IP limits are the guard instead.
 - View transitions animate in Chromium, Safari and recent Firefox. Elsewhere, changes are instant with no loss of function.
 - Newsreader approximates Ivar (licensed) but is not identical.
+
+## 13. Plain words for versions, and the last details
+
+- **Versions are named for people, not for document control.** *v1.0* and *v2.0* mean little to a student at a counter. The interface says *Original*, *Update 1*, *Update 2*: the order the notice was published in, from the version number. Inside a sentence it reads *the original*. The official label, such as "Major Corrigendum", still appears beside the name, and the API keeps the raw labels.
+- **The footer fills the last screen.** At the end of a page the footer is at least one screen tall. The floating bar then sits over the footer itself, never over a sliver of the band above it, and the content starts below the bar. Its links draw their underline in from the left on hover.
+- **Your folder beside your next steps.** On the Overview, the column next to the action list holds a manila folder with every required paper and where it stands (ready, changed under you, not prepared). It follows you down the list.
+- **The report form has real menus.** The dossier and requirement pickers are listboxes in the house style, not the browser's grey menu: a chapter swatch or requirement code, a second line, a check on the chosen item, arrow keys, and Escape closes the list without closing the form. Each kind of report is a card with an icon and one line on what it means. Scrollbars are thin and take the ink of what they scroll.
+- **Every page drifts a little.** Each page has a word engraved large behind its first screen, drifting slower than the page as you scroll: তালিকা (list) on the Directory, the version's name on a specification, সংশোধনী (corrigendum) on Changes, প্রস্তুতি (preparation) on My plan.
+- **Navigation lands at the top at once.** Next 16 no longer turns off smooth scrolling during a route change, so opening a specification from deep in the Overview used to scroll visibly up from the footer. `data-scroll-behavior="smooth"` on `<html>` restores the instant jump; in-page links still scroll smoothly.
