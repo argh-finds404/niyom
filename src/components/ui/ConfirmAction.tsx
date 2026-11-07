@@ -1,18 +1,17 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConfirmActionProps {
-  /** Label shown in the normal resting state (e.g. "Reset the demo" or "Clear"). */
+  /** Label in the resting state (e.g. "Reset the demo"). */
   label: ReactNode;
-  /** Label shown once armed for confirmation (e.g. "Confirm reset?" or "Confirm clear?"). */
+  /** Label once armed (e.g. "Clear note?"). */
   confirmLabel?: ReactNode;
-  /** Executed only when the user clicks a second time while armed. */
+  /** Runs only on the second click, while armed. */
   onConfirm: () => void;
-  /** Milliseconds before the armed state automatically disarms. Defaults to 3200ms. */
+  /** How long the armed state lasts before it disarms by itself. */
   timeoutMs?: number;
   className?: string;
   armedClassName?: string;
@@ -20,9 +19,8 @@ interface ConfirmActionProps {
 }
 
 /**
- * Two-step inline destructive action guard powered by Framer Motion.
- * Protects irreversible operations (resetting demo progress, clearing dossier checks,
- * wiping evidence memos) against accidental single clicks.
+ * A two-step button for actions that cannot be undone: the first click arms it (red, with a
+ * draining bar), the second within a few seconds confirms. Esc or waiting disarms it.
  */
 export function ConfirmAction({
   label,
@@ -38,9 +36,7 @@ export function ConfirmAction({
   useEffect(() => {
     if (!armed) return;
     const timer = window.setTimeout(() => setArmed(false), timeoutMs);
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setArmed(false);
-    };
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setArmed(false);
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.clearTimeout(timer);
@@ -49,62 +45,36 @@ export function ConfirmAction({
   }, [armed, timeoutMs]);
 
   return (
-    <motion.button
+    <button
       type="button"
-      layout
-      aria-label={typeof ariaLabel === "string" ? ariaLabel : undefined}
+      aria-label={ariaLabel}
       onClick={() => {
-        if (!armed) {
-          setArmed(true);
-          return;
-        }
+        if (!armed) return setArmed(true);
         setArmed(false);
         onConfirm();
       }}
       className={cn(
-        "relative inline-flex items-center gap-1.5 overflow-hidden rounded-[var(--r-control)] px-3 py-1.5 text-[14.5px] transition-colors",
-        armed
-          ? cn("bg-crit text-ground font-medium shadow-[0_2px_10px_-3px_rgba(168,42,33,0.45)]", armedClassName)
-          : cn("text-ink-2 hover:bg-ink/[0.06] hover:text-ink", className)
+        "relative inline-flex items-center gap-1.5 overflow-hidden rounded-[var(--r-control)] px-3 py-1.5 text-[14.5px] transition-colors duration-200",
+        armed ? cn("bg-crit font-medium text-ground", armedClassName) : cn("text-ink-2 hover:bg-ink/[0.06] hover:text-ink", className)
       )}
     >
-      <AnimatePresence mode="wait" initial={false}>
+      <span aria-live="polite" className="inline-flex items-center gap-1.5">
         {armed ? (
-          <motion.span
-            key="armed"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.16 }}
-            className="inline-flex items-center gap-1.5"
-          >
+          <>
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            <span>{confirmLabel}</span>
-          </motion.span>
+            {confirmLabel}
+          </>
         ) : (
-          <motion.span
-            key="idle"
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            transition={{ duration: 0.16 }}
-            className="inline-flex items-center gap-1.5"
-          >
-            {label}
-          </motion.span>
+          label
         )}
-      </AnimatePresence>
-
+      </span>
       {armed && (
-        <motion.span
+        <span
           aria-hidden
-          initial={{ scaleX: 1 }}
-          animate={{ scaleX: 0 }}
-          transition={{ duration: timeoutMs / 1000, ease: "linear" }}
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[2.5px] origin-left bg-ground/75"
+          style={{ animation: `timer ${timeoutMs}ms linear both` }}
         />
       )}
-    </motion.button>
+    </button>
   );
 }
-

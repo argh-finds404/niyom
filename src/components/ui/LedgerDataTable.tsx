@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { motion } from "framer-motion";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +27,7 @@ interface LedgerDataTableProps<T> {
 }
 
 /**
- * Reusable, multi-column sortable editorial ledger data table powered by Framer Motion.
+ * A sortable table for dense comparison, alongside the editorial card views.
  * Used across the Directory (`ExploreScreen`) and Preparation Plan (`MyPlanScreen`)
  * for high-density tabular inspection alongside editorial cards.
  */
@@ -92,7 +91,7 @@ export function LedgerDataTable<T>({
       <table className="w-full min-w-[680px] border-collapse text-left">
         <caption className="sr-only">{caption}</caption>
         <thead>
-          <tr className="border-b border-ink/15 bg-ground/70">
+          <tr className="border-b border-ink/15">
             {columns.map((col) => {
               const isSorted = sortColId === col.id;
               const sortable = Boolean(col.sortValue);
@@ -110,7 +109,7 @@ export function LedgerDataTable<T>({
                         : "none"
                   }
                   className={cn(
-                    "px-4 py-3 text-[13.5px] font-semibold uppercase tracking-wider text-ink-3",
+                    "px-4 py-3 text-[14.5px] font-normal italic text-ink-3",
                     col.align === "right" && "text-right",
                     col.className
                   )}
@@ -148,12 +147,8 @@ export function LedgerDataTable<T>({
           {sortedRows.map((row) => {
             const key = getRowKey(row);
             return (
-              <motion.tr
+              <tr
                 key={key}
-                layout="position"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.18 }}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 onKeyDown={
                   onRowClick
@@ -186,7 +181,7 @@ export function LedgerDataTable<T>({
                     {col.cell(row)}
                   </td>
                 ))}
-              </motion.tr>
+              </tr>
             );
           })}
         </tbody>

@@ -271,7 +271,7 @@ function PassportFace({ notice, version, index, changed, consequential, dropping
       </div>
       {/* The cover swings open on hover. */}
       <div
-        className="absolute inset-0 origin-left overflow-hidden rounded-[3cqw] rounded-l-[1.4cqw] transition-transform duration-700 ease-spring [backface-visibility:hidden] group-hover/obj:[transform:rotateY(-64deg)] motion-reduce:transition-none"
+        className="passport-cover absolute inset-0 origin-left overflow-hidden rounded-[3cqw] rounded-l-[1.4cqw] transition-transform duration-700 ease-spring [backface-visibility:hidden] group-hover/obj:[transform:rotateY(-64deg)] motion-reduce:transition-none"
         style={{ background: colors.cover, color: "#d9b77a" }}
       >
         <span aria-hidden className="absolute inset-y-0 left-0 w-[7cqw]" style={{ background: "rgba(0,0,0,0.18)" }} />
