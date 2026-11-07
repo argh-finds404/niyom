@@ -29,8 +29,17 @@ export function dayDelta(from: string | undefined, to: string | undefined): numb
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
-export function versionTag(label: string): string {
-  return label.split(" ")[0];
+/** A version's name in plain words: the original notice, then its updates in order (numbers run 1, 2, 3 per notice). */
+export function versionTag(v: { versionNumber: number }): string {
+  return v.versionNumber <= 1 ? "Original" : `Update ${v.versionNumber - 1}`;
+}
+
+/** A version's name inside a sentence: "the original", "Update 2". */
+export function asPhrase(tag: string): string {
+  return tag === "Original" ? "the original" : tag;
+}
+export function versionPhrase(v: { versionNumber: number }): string {
+  return asPhrase(versionTag(v));
 }
 
 export const CATEGORY_LABEL: Record<DossierCategory, string> = {

@@ -2,20 +2,30 @@
 
 import Link from "next/link";
 import { useId, useState } from "react";
-import { X } from "lucide-react";
+import { Clock, FilePen, ShieldAlert, Split, X, type LucideIcon } from "lucide-react";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
 import { versionOf } from "@/hooks/useDossierIntelligence";
 import { communityReportInputSchema, type CommunityReportInput } from "@/domain";
 import type { CommunityReport } from "@/domain/types";
-import { REPORT_TYPE_LABEL, shortTitle } from "@/lib/format";
+import { CATEGORY_LABEL, REPORT_TYPE_LABEL, shortTitle } from "@/lib/format";
+import { chapterOf } from "@/lib/chapters";
+import { Select } from "@/components/ui/Select";
 import { Button, Overlay, buttonClass } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
 type Errors = Partial<Record<keyof CommunityReportInput, string>>;
 
+/** What each kind of report means, in a line, with a mark you can find again. */
+const REPORT_KINDS: Record<CommunityReportInput["reportType"], { icon: LucideIcon; hint: string }> = {
+  requirement_changed: { icon: FilePen, hint: "An office asks for something the notice does not" },
+  contradictory_instruction: { icon: Split, hint: "Two offices say different things" },
+  service_delay: { icon: Clock, hint: "A paper takes longer than stated" },
+  outdated_or_scam: { icon: ShieldAlert, hint: "An old or fake copy is going round" },
+};
+
 const field =
-  "w-full rounded-[var(--r-control)] border border-[#1c1b19]/25 bg-white/50 px-3.5 text-[17px] transition-[border-color,background-color] duration-200 placeholder:italic placeholder:text-[#6b655b] hover:border-[#1c1b19]/70 focus:border-[#1c1b19] focus:bg-white/60 focus:outline-none";
+  "w-full rounded-[var(--r-control)] border border-[#1c1b19]/20 bg-white/60 px-3.5 text-[17px] transition-[border-color,background-color,box-shadow] duration-200 placeholder:italic placeholder:text-[#8a847a] hover:border-[#1c1b19]/55 hover:bg-white/80 focus:border-[#1c1b19] focus:bg-white focus:shadow-[0_0_0_4px_rgba(28,27,25,0.07)] focus:outline-none";
 
 function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requirementId?: string }; onClose: () => void }) {
   const notices = useNiyomStore((s) => s.notices);
@@ -145,70 +155,76 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
       ) : (
         <form noValidate onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col border-t border-[#1c1b19]/15">
           <div className="flex-1 space-y-6 overflow-y-auto px-7 py-6">
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="space-y-5">
               <div>
                 <label htmlFor={`${uid}-noticeId`} className="mb-2 block text-[15px] italic text-[#47433c]">
                   Dossier
                 </label>
-                <select
+                <Select
                   id={`${uid}-noticeId`}
+                  label="Dossier"
                   value={notice.id}
-                  onChange={(e) => {
-                    set("noticeId", e.target.value);
+                  onChange={(v) => {
+                    set("noticeId", v);
                     set("requirementId", undefined);
                   }}
-                  className={cn(field, "h-11")}
-                >
-                  {notices.map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {shortTitle(n)}
-                    </option>
-                  ))}
-                </select>
+                  options={notices.map((n) => ({
+                    value: n.id,
+                    label: shortTitle(n),
+                    hint: CATEGORY_LABEL[n.category],
+                    lead: <span aria-hidden data-cover={chapterOf(n.id)} className="h-8 w-6 flex-none rounded-[4px]" />,
+                  }))}
+                />
               </div>
               <div>
                 <label htmlFor={`${uid}-requirementId`} className="mb-2 block text-[15px] italic text-[#47433c]">
-                  Requirement (optional)
+                  Requirement <span className="text-[#6b655b]">(optional)</span>
                 </label>
-                <select
+                <Select
                   id={`${uid}-requirementId`}
+                  label="Requirement"
                   value={validReqId ?? ""}
-                  onChange={(e) => set("requirementId", e.target.value || undefined)}
-                  className={cn(field, "h-11")}
-                >
-                  <option value="">The dossier in general</option>
-                  {requirements.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.code} · {r.title}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => set("requirementId", v || undefined)}
+                  options={[
+                    { value: "", label: "The dossier in general", hint: "Not about one requirement" },
+                    ...requirements.map((r) => ({
+                      value: r.id,
+                      label: r.title,
+                      lead: <span className="code w-[78px] flex-none text-[13px] text-[#6b655b]">{r.code}</span>,
+                    })),
+                  ]}
+                />
               </div>
             </div>
 
             <fieldset>
               <legend className="mb-2 text-[15px] italic text-[#47433c]">What did you observe?</legend>
-              <div className="grid grid-cols-1 gap-1 rounded-[var(--r-card)] bg-[#1c1b19]/[0.05] p-1 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {(Object.keys(REPORT_TYPE_LABEL) as CommunityReportInput["reportType"][]).map((t) => {
                   const on = form.reportType === t;
+                  const { icon: Icon, hint } = REPORT_KINDS[t];
                   return (
                     <label
                       key={t}
                       className={cn(
-                        "flex min-h-11 cursor-pointer items-center gap-3 rounded-[8px] px-3 text-[15.5px] transition-colors duration-200",
-                        on ? "bg-[#1c1b19] text-[#f4f1ea]" : "hover:bg-[#1c1b19]/[0.05]"
+                        "group relative flex cursor-pointer items-start gap-3 rounded-[12px] border px-3.5 py-3 transition-[border-color,background-color,box-shadow] duration-200 has-[:focus-visible]:shadow-[0_0_0_3px_rgba(28,27,25,0.25)]",
+                        on ? "border-[#1c1b19] bg-white shadow-[0_10px_24px_-16px_rgba(28,27,25,0.5)]" : "border-[#1c1b19]/15 bg-white/40 hover:border-[#1c1b19]/40 hover:bg-white/70"
                       )}
                     >
-                      <input
-                        type="radio"
-                        name="reportType"
-                        value={t}
-                        checked={on}
-                        onChange={() => set("reportType", t)}
-                        className="sr-only"
-                      />
-                      <span aria-hidden className={cn("h-3 w-3 flex-none rounded-full border", on ? "border-[#f2f1ed] bg-[#f2f1ed]" : "border-[#1c1b19]/50")} />
-                      {REPORT_TYPE_LABEL[t]}
+                      <input type="radio" name="reportType" value={t} checked={on} onChange={() => set("reportType", t)} className="sr-only" />
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "grid h-9 w-9 flex-none place-items-center rounded-[9px] transition-colors duration-200",
+                          on ? "bg-[#1c1b19] text-[#f4f1ea]" : "bg-[#1c1b19]/[0.06] text-[#47433c]"
+                        )}
+                      >
+                        <Icon className="h-[18px] w-[18px]" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[16px] font-semibold leading-snug">{REPORT_TYPE_LABEL[t]}</span>
+                        <span className="mt-0.5 block text-[13.5px] leading-snug text-[#6b655b]">{hint}</span>
+                      </span>
                     </label>
                   );
                 })}
@@ -228,10 +244,11 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
                 aria-invalid={Boolean(errors.observation)}
                 aria-describedby={`${uid}-observation-help`}
                 placeholder="The registrar counter asked for a stamped hard copy before endorsing the online form."
-                className={cn(field, "resize-y py-3 leading-relaxed", errors.observation && "border-[#9a2b1e]")}
+                className={cn(field, "min-h-[120px] resize-y py-3 leading-relaxed", errors.observation && "border-[#9a2b1e]")}
               />
-              <p id={`${uid}-observation-help`} className={cn("mt-1.5 text-[14.5px]", errors.observation ? "text-[#9a2b1e]" : "italic text-[#6b655b]")}>
-                {errors.observation ?? "At least 15 characters: what happened, where, and when."}
+              <p id={`${uid}-observation-help`} className={cn("mt-1.5 flex justify-between gap-4 text-[14.5px]", errors.observation ? "text-[#9a2b1e]" : "italic text-[#6b655b]")}>
+                <span>{errors.observation ?? "At least 15 characters: what happened, where, and when."}</span>
+                <span className="num flex-none not-italic text-[#6b655b]">{form.observation.length}/600</span>
               </p>
             </div>
 
@@ -247,7 +264,7 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
                 aria-invalid={Boolean(errors.evidenceUrlOrRef)}
                 aria-describedby={`${uid}-evidence-help`}
                 placeholder="Transaction ID, memo number or photo reference"
-                className={cn(field, "h-11", errors.evidenceUrlOrRef && "border-[#9a2b1e]")}
+                className={cn(field, "h-12", errors.evidenceUrlOrRef && "border-[#9a2b1e]")}
               />
               <p id={`${uid}-evidence-help`} className={cn("mt-1.5 text-[14.5px]", errors.evidenceUrlOrRef ? "text-[#9a2b1e]" : "italic text-[#6b655b]")}>
                 {errors.evidenceUrlOrRef ?? "Something another applicant could check. No personal phone numbers."}
