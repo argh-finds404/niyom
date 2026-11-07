@@ -1,39 +1,43 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Newsreader, Noto_Serif_Bengali } from "next/font/google";
+import { AppShell } from "@/components/layout/AppShell";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// One serif family with optical sizes: tight display cuts for titles, open text cuts for reading.
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin"],
+  style: ["normal", "italic"],
+  axes: ["opsz"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+// Only for the product name নিয়ম.
+const bengali = Noto_Serif_Bengali({
+  variable: "--font-noto-serif-bengali",
+  subsets: ["bengali"],
+  weight: ["600"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
-  title: "NIYOM — Personal Application Readiness & Requirement Intelligence",
+  title: {
+    default: "NIYOM — Be ready. Not just informed.",
+    template: "%s · NIYOM",
+  },
   description:
-    "Be ready. Not just informed. Requirement intelligence and version-aware preparation plans.",
+    "NIYOM tracks official notice revisions, ignores cosmetic edits, and tells you which of your prepared documents a corrigendum has invalidated.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export const viewport: Viewport = {
+  themeColor: "#f4f1ea",
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className={`${newsreader.variable} ${bengali.variable} h-full`}>
+      <body className="min-h-full">
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }
