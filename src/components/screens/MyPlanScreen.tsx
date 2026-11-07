@@ -113,8 +113,13 @@ function NumberField({
     setError(null);
   }
   const commit = () => {
-    if (draft.trim() === "") return setDraft(shown);
-    const n = Number(draft);
+    const trimmed = draft.trim();
+    if (trimmed === "") {
+      setError(null);
+      setDraft(shown);
+      return;
+    }
+    const n = Number(trimmed);
     const err = Number.isFinite(n) ? validate(n) : "Enter a number.";
     setError(err);
     if (!err && n !== value) onCommit(n);
@@ -131,7 +136,7 @@ function NumberField({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => e.key === "Enter" && commit()}
-          className="num h-11 w-full border-b border-ink/50 bg-transparent text-[22px] transition-colors placeholder:italic placeholder:text-ink-3 hover:border-ink focus:border-ink focus:outline-none aria-[invalid=true]:border-crit"
+          className="num h-11 w-full border-b border-ink/50 bg-transparent pr-20 text-[22px] transition-colors placeholder:italic placeholder:text-ink-3 hover:border-ink focus:border-ink focus:outline-none aria-[invalid=true]:border-crit"
         />
         {suffix && (
           <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-[15px] italic text-ink-3">{suffix}</span>
@@ -153,6 +158,17 @@ function ProfileFields() {
   const known = INSTITUTIONS.find(([, full]) => full === profile.institution);
   const [custom, setCustom] = useState(known ? "" : profile.institution);
   const [customOpen, setCustomOpen] = useState(!known);
+  const [instError, setInstError] = useState<string | null>(null);
+  const [lastInst, setLastInst] = useState(profile.institution);
+
+  if (profile.institution !== lastInst) {
+    setLastInst(profile.institution);
+    const nextKnown = INSTITUTIONS.find(([, full]) => full === profile.institution);
+    setCustom(nextKnown ? "" : profile.institution);
+    setCustomOpen(!nextKnown);
+    setInstError(null);
+  }
+
   // Profile changes move requirements between groups; let them glide.
   const update = (p: Partial<ApplicantProfile>) => withViewTransition(() => updateProfile(p));
 
@@ -169,6 +185,29 @@ function ProfileFields() {
   const cgpaError = (n: number) =>
     applicantProfileSchema.shape.cgpa.safeParse(n).success ? null : "CGPA must be between 0.00 and 4.00.";
 
+  const incomeError = (n: number) =>
+    n < 0
+      ? "Income cannot be negative."
+      : applicantProfileSchema.shape.householdIncomeLakhs.safeParse(n).success
+        ? null
+        : "Enter annual income in lakh BDT (0 to 1,000).";
+
+  const commitInstitution = () => {
+    const trimmed = custom.trim();
+    if (!trimmed) {
+      setInstError(null);
+      if (known) setCustomOpen(false);
+      else setCustom(profile.institution);
+      return;
+    }
+    if (!applicantProfileSchema.shape.institution.safeParse(trimmed).success) {
+      setInstError("Institution name must be 120 characters or fewer.");
+      return;
+    }
+    setInstError(null);
+    if (trimmed !== profile.institution) update({ institution: trimmed });
+  };
+
   return (
     <div className="divide-y divide-ink/15">
       <Field label="Institution">
@@ -177,22 +216,35 @@ function ProfileFields() {
           value={customOpen ? "custom" : (known?.[0] ?? "custom")}
           options={[...INSTITUTIONS.map(([k]) => [k, k] as [string, string]), ["custom", "Other"]]}
           onChange={(v) => {
+            setInstError(null);
             if (v === "custom") return setCustomOpen(true);
             setCustomOpen(false);
             update({ institution: INSTITUTIONS.find(([k]) => k === v)![1] });
           }}
         />
         {customOpen && (
-          <input
-            autoFocus={Boolean(known)}
-            aria-label="Institution name"
-            value={custom}
-            placeholder="Full institution name"
-            onChange={(e) => setCustom(e.target.value)}
-            onBlur={() => custom.trim() && update({ institution: custom.trim() })}
-            onKeyDown={(e) => e.key === "Enter" && custom.trim() && update({ institution: custom.trim() })}
-            className="mt-3 h-11 w-full border-b border-ink/50 bg-transparent text-[18px] placeholder:italic placeholder:text-ink-3 focus:border-ink focus:outline-none"
-          />
+          <>
+            <input
+              autoFocus={Boolean(known)}
+              aria-label="Institution name"
+              aria-invalid={Boolean(instError)}
+              maxLength={120}
+              value={custom}
+              placeholder="Full institution name"
+              onChange={(e) => {
+                setCustom(e.target.value);
+                if (instError) setInstError(null);
+              }}
+              onBlur={commitInstitution}
+              onKeyDown={(e) => e.key === "Enter" && commitInstitution()}
+              className="mt-3 h-11 w-full border-b border-ink/50 bg-transparent text-[18px] placeholder:italic placeholder:text-ink-3 focus:border-ink focus:outline-none aria-[invalid=true]:border-crit"
+            />
+            {instError && (
+              <p role="alert" className="mt-1.5 text-[14.5px] text-crit">
+                {instError}
+              </p>
+            )}
+          </>
         )}
       </Field>
 
@@ -234,7 +286,7 @@ function ProfileFields() {
           value={profile.householdIncomeLakhs}
           ariaLabel="Household income a year, in lakh taka"
           suffix="lakh BDT"
-          validate={(n) => (n < 0 ? "Income cannot be negative." : null)}
+          validate={incomeError}
           onCommit={(householdIncomeLakhs) => update({ householdIncomeLakhs })}
         />
         <div className="mt-3 flex flex-wrap gap-2">
@@ -440,7 +492,7 @@ export function MyPlanScreen() {
           </Button>
         </header>
 
-        <div role="tablist" aria-label="Dossier" className="scroll-x -mx-4 mt-10 flex gap-4 px-4 pb-6 pt-2 sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0">
+        <div role="tablist" aria-label="Dossier" className="scroll-x -mx-4 mt-10 flex gap-4 px-4 pb-6 pt-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-4">
           {all.map((d) => {
             const on = d.notice.id === notice.id;
             return (
@@ -480,9 +532,9 @@ export function MyPlanScreen() {
             <p className="text-[16px] italic text-ink-3">
               Readiness for {shortTitle(notice)}, checked against {tag}
             </p>
-            <p className="display mt-2 text-[96px] leading-[0.95]">
+            <p className="display mt-2 text-[72px] leading-[0.95] sm:text-[96px]">
               {hydrated ? <AnimatedNumber value={s.percentage} /> : <Skel className="h-20 w-36" />}
-              <span className="text-[48px]">%</span>
+              <span className="text-[38px] sm:text-[48px]">%</span>
             </p>
             <p className="num mt-3 text-[17px] text-ink-2">
               {hydrated ? `${s.completedMandatoryCount} of ${s.totalApplicableMandatoryCount} required items verified` : <Skel className="h-4 w-52" />}
@@ -493,7 +545,6 @@ export function MyPlanScreen() {
               Readiness measures your own checks against the requirements that apply to you in the active version. It does not
               guarantee selection or an official outcome.
             </p>
-
           </div>
 
           <aside

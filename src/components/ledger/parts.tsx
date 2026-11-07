@@ -53,11 +53,11 @@ export function Redline({
   return (
     <dl className={cn("grid grid-cols-1 gap-x-4 gap-y-1.5 text-[16px] leading-relaxed sm:grid-cols-[64px_minmax(0,1fr)]", className)}>
       <dt className="code pt-0.5 text-[14px] text-ink-3">{fromTag}</dt>
-      <dd>
+      <dd className="min-w-0 break-words">
         <RedlineText tokens={tokens} side="before" className="text-ink-3" />
       </dd>
       <dt className="code pt-0.5 text-[14px] text-ink">{toTag}</dt>
-      <dd>
+      <dd className="min-w-0 break-words">
         <RedlineText tokens={tokens} side="after" />
       </dd>
     </dl>
@@ -93,14 +93,22 @@ export function ruleExplanation(rule: ApplicabilityRule | undefined, profile: Ap
   if (value === null || value === undefined) {
     return `${FIELD_LABEL[rule.field].toLowerCase()} not in your profile`;
   }
-  const fmt = (v: string | number) =>
-    typeof v === "number" ? (rule.field === "currentYear" ? String(v) : v.toFixed(2)) : (VALUE_LABEL[v] ?? v);
+  const expNum = Number(rule.expected);
+  const fmt = (v: string | number) => {
+    if (typeof v !== "number") return VALUE_LABEL[v] ?? v;
+    if (rule.field === "currentYear") return String(v);
+    const two = v.toFixed(2);
+    if (Number.isFinite(expNum) && v !== expNum && two === expNum.toFixed(2)) {
+      return Number(v.toFixed(4)).toString();
+    }
+    return two;
+  };
   const ok =
     rule.operator === "equals"
       ? String(value) === String(rule.expected)
       : rule.operator === "gte"
-        ? Number(value) >= Number(rule.expected)
-        : Number(value) <= Number(rule.expected);
+        ? Number(value) >= expNum
+        : Number(value) <= expNum;
   const unit = rule.field === "householdIncomeLakhs" ? "L" : "";
   return `${FIELD_LABEL[rule.field]} ${fmt(value)}${unit} ${OP[rule.operator][ok ? 0 : 1]} ${fmt(rule.expected)}${unit}`;
 }
@@ -109,7 +117,7 @@ export function ruleExplanation(rule: ApplicabilityRule | undefined, profile: Ap
 
 function Quote({ by, date, children }: { by: string; date?: string; children: ReactNode }) {
   return (
-    <figure>
+    <figure className="min-w-0 break-words">
       <span aria-hidden className="block h-6 text-[40px] font-bold leading-none">
         &ldquo;
       </span>
@@ -131,7 +139,7 @@ export function ConflictNote({ requirement, sources }: { requirement: Requiremen
   return (
     <div className="mt-5 border-l-[3px] border-crit pl-5">
       <p className="text-[15.5px] italic text-crit">Two official sources disagree</p>
-      <div className="mt-3 grid gap-6 sm:grid-cols-2">
+      <div className="mt-3 grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Quote by={primary?.authority ?? "Primary source"} date={primary?.publishedAt}>
           {requirement.evidence.excerpt}
         </Quote>
@@ -171,11 +179,11 @@ export function FieldReports({ reports, onAdd }: { reports: CommunityReport[]; o
       <ul className="mt-2 divide-y divide-ink/10">
         {reports.map((r) => (
           <li key={r.id} className="py-3">
-            <p className="text-[16px] leading-relaxed">{r.observation}</p>
+            <p className="break-words text-[16px] leading-relaxed">{r.observation}</p>
             <p className="num mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14.5px] text-ink-3">
               <span className="italic">{REPORT_TYPE_LABEL[r.reportType]}</span>
               <span>{formatDate(r.submittedAt)}</span>
-              <span>{r.evidenceUrlOrRef}</span>
+              <span className="break-all">{r.evidenceUrlOrRef}</span>
               {r.verificationStatus === "corroborated_pattern" ? (
                 <span className="text-ink-2">{r.corroborationCount} applicants report the same</span>
               ) : (
@@ -245,7 +253,7 @@ export function EvidenceQuote({ requirement, sources }: { requirement: Requireme
   const source = sources.find((s) => s.id === requirement.evidence.sourceId);
   return (
     <figure className="border-l border-ink pl-4">
-      <blockquote className="text-[16px] italic leading-relaxed">&ldquo;{requirement.evidence.excerpt}&rdquo;</blockquote>
+      <blockquote className="break-words text-[16px] italic leading-relaxed">&ldquo;{requirement.evidence.excerpt}&rdquo;</blockquote>
       <figcaption className="mt-2 text-[14.5px] text-ink-3">
         {requirement.evidence.sectionOrPage}
         {source && (

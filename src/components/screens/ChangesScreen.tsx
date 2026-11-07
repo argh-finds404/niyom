@@ -75,8 +75,8 @@ function ChangeCard({ change, fromTag, toTag, toIsActive, noticeId }: { change: 
         </p>
       )}
 
-      <div className="mt-5 grid sm:grid-cols-2">
-        <div className="bg-ink/[0.035] px-6 py-5">
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2">
+        <div className="min-w-0 break-words bg-ink/[0.035] px-6 py-5">
           <p className="text-[14.5px] italic text-ink-3">Before, {fromTag}</p>
           {prev ? (
             <>
@@ -87,7 +87,7 @@ function ChangeCard({ change, fromTag, toTag, toIsActive, noticeId }: { change: 
             <p className="mt-1.5 text-[16.5px] italic text-ink-3">Not in {fromTag}.</p>
           )}
         </div>
-        <div className="px-6 py-5">
+        <div className="min-w-0 break-words px-6 py-5">
           <p className="text-[14.5px] italic text-ink-3">After, {toTag}</p>
           {curr ? (
             <>
@@ -153,9 +153,16 @@ export function ChangesScreen({ id }: { id: string }) {
   const first = versions[0]?.versionNumber ?? 1;
   const last = versions[versions.length - 1]?.versionNumber ?? 1;
   const active = notice?.activeVersionNumber ?? last;
+  const defaultTo = active > first ? active : last;
 
-  const [pair, setPair] = useState<[number, number]>(() => [first, active > first ? active : last]);
+  const [pair, setPair] = useState<[number, number]>(() => [first, defaultTo]);
+  const [lastId, setLastId] = useState(id);
   const [filter, setFilter] = useState<Filter>("matter");
+
+  if (id !== lastId) {
+    setLastId(id);
+    setPair([first, defaultTo]);
+  }
 
   useEffect(() => setActiveNotice(id), [id, setActiveNotice]);
   // Opening the redline is reviewing it: clear the alert for the version your checklist follows.
@@ -174,7 +181,11 @@ export function ChangesScreen({ id }: { id: string }) {
     }
   }, [versions]);
 
-  const [from, to] = pair;
+  const validFrom = versions.some((v) => v.versionNumber === pair[0]) ? pair[0] : first;
+  const validTo = versions.some((v) => v.versionNumber === pair[1]) && pair[1] > validFrom ? pair[1] : defaultTo;
+  const from = validFrom;
+  const to = validTo;
+
   const fromV = notice ? versionOf(notice, from) : null;
   const toV = notice ? versionOf(notice, to) : null;
 

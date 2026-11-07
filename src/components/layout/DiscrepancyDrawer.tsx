@@ -24,9 +24,12 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
   const toast = useUiStore((s) => s.toast);
   const uid = useId();
 
+  const initialNotice = notices.find((n) => n.id === (initial.noticeId ?? activeNoticeId)) ?? notices[0];
+  const initialReqs = versionOf(initialNotice, initialNotice.activeVersionNumber).requirements;
+
   const [form, setForm] = useState<CommunityReportInput>({
-    noticeId: initial.noticeId ?? activeNoticeId,
-    requirementId: initial.requirementId,
+    noticeId: initialNotice.id,
+    requirementId: initial.requirementId && initialReqs.some((r) => r.id === initial.requirementId) ? initial.requirementId : undefined,
     reportType: "requirement_changed",
     observation: "",
     evidenceUrlOrRef: "",
@@ -37,6 +40,8 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
 
   const notice = notices.find((n) => n.id === form.noticeId) ?? notices[0];
   const requirements = versionOf(notice, notice.activeVersionNumber).requirements;
+  const validReqId = form.requirementId && requirements.some((r) => r.id === form.requirementId) ? form.requirementId : undefined;
+
   const set = <K extends keyof CommunityReportInput>(k: K, v: CommunityReportInput[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
     if (errors[k]) setErrors((e) => ({ ...e, [k]: undefined }));
@@ -46,9 +51,10 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
     e.preventDefault();
     const parsed = communityReportInputSchema.safeParse({
       ...form,
+      noticeId: notice.id,
       observation: form.observation.trim(),
       evidenceUrlOrRef: form.evidenceUrlOrRef.trim(),
-      requirementId: form.requirementId || undefined,
+      requirementId: validReqId,
     });
     if (!parsed.success) {
       const next: Errors = {};
@@ -120,7 +126,7 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
           </p>
           <div className="mt-10 flex flex-wrap gap-3">
             <Link
-              href={`/notice/${notice.id}${form.requirementId ? `#req-${form.requirementId}` : ""}`}
+              href={`/notice/${notice.id}${validReqId ? `#req-${validReqId}` : ""}`}
               onClick={onClose}
               className={buttonClass("primary")}
             >
@@ -146,7 +152,7 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
                 </label>
                 <select
                   id={`${uid}-noticeId`}
-                  value={form.noticeId}
+                  value={notice.id}
                   onChange={(e) => {
                     set("noticeId", e.target.value);
                     set("requirementId", undefined);
@@ -166,7 +172,7 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
                 </label>
                 <select
                   id={`${uid}-requirementId`}
-                  value={form.requirementId ?? ""}
+                  value={validReqId ?? ""}
                   onChange={(e) => set("requirementId", e.target.value || undefined)}
                   className={cn(field, "h-11")}
                 >
@@ -216,6 +222,7 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
               <textarea
                 id={`${uid}-observation`}
                 rows={4}
+                maxLength={600}
                 value={form.observation}
                 onChange={(e) => set("observation", e.target.value)}
                 aria-invalid={Boolean(errors.observation)}
@@ -224,7 +231,7 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
                 className={cn(field, "resize-y py-3 leading-relaxed", errors.observation && "border-[#9a2b1e]")}
               />
               <p id={`${uid}-observation-help`} className={cn("mt-1.5 text-[14.5px]", errors.observation ? "text-[#9a2b1e]" : "italic text-[#6b655b]")}>
-                {errors.observation ?? "What happened, where, and when."}
+                {errors.observation ?? "At least 15 characters: what happened, where, and when."}
               </p>
             </div>
 
@@ -234,6 +241,7 @@ function DrawerBody({ initial, onClose }: { initial: { noticeId?: string; requir
               </label>
               <input
                 id={`${uid}-evidenceUrlOrRef`}
+                maxLength={200}
                 value={form.evidenceUrlOrRef}
                 onChange={(e) => set("evidenceUrlOrRef", e.target.value)}
                 aria-invalid={Boolean(errors.evidenceUrlOrRef)}
