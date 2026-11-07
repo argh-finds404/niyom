@@ -63,7 +63,11 @@ export interface NiyomStoreState {
 const HERO = "notice-merit-2026";
 const isBrowser = () => typeof window !== "undefined" && typeof fetch !== "undefined";
 const now = () => new Date().toISOString();
-const stripFlags = ({ yours: _y, confirmedByYou: _c, ...r }: ServerReport): CommunityReport => r;
+const stripFlags = ({ yours, confirmedByYou, ...r }: ServerReport): CommunityReport => {
+  void yours;
+  void confirmedByYou;
+  return r;
+};
 
 /* What was found in IndexedDB at start-up: local data wins over the server only where it exists. */
 let localProfileFound = false;

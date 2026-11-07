@@ -142,6 +142,7 @@ src/components/        Shell (rail, top bar, alerts, palette), ledger entries, i
 ## Checks
 
 ```bash
+npm run lint        # eslint .
 npm run typecheck   # tsc --noEmit
 npm test            # vitest: engine, word diff, alerts, deadlines, iCalendar,
                     # the whole API on memory and on Postgres, and browser-to-server sync

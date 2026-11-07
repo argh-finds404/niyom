@@ -159,4 +159,3 @@ The findings and fixes from both passes are listed in [`reviews/backend-audit.md
 - One person with several browsers counts as several devices when confirming a report. Blocking that by IP would also block students who share a campus or mobile-carrier address, so the threshold (three devices) and the per-IP limits are the guard instead.
 - View transitions animate in Chromium, Safari and recent Firefox. Elsewhere, changes are instant with no loss of function.
 - Newsreader approximates Ivar (licensed) but is not identical.
-- `npm run lint` calls `next lint`, which Next 16 removed.
