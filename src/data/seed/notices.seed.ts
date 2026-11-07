@@ -614,6 +614,27 @@ export const SEED_NOTICES: Notice[] = [
                 "Retain cancellation SMS and digital TrxID. If MFS credit is delayed beyond 7 days, cross-check transaction with payment gateway.",
             },
           },
+          {
+            id: "req-refund-wallet",
+            code: "REQ-RW-05",
+            title: "Refund Destination Wallet",
+            category: "procedure",
+            value:
+              "Refund is credited only to the bKash/Nagad wallet used for payment; keep that wallet active until settlement",
+            mandatory: true,
+            applicability: {
+              field: "paymentChannel",
+              operator: "equals",
+              expected: "bkash_nagad",
+              humanLabel: "Ticket paid via bKash / Nagad",
+            },
+            reviewState: "official",
+            evidence: {
+              sourceId: "source-shohoz-portal",
+              excerpt: "MFS refunds are returned to the originating wallet account only.",
+              sectionOrPage: "FAQ Section 3",
+            },
+          },
         ],
       },
       // v2.0
@@ -688,6 +709,27 @@ export const SEED_NOTICES: Notice[] = [
                 "Settlement may take up to 10 business days regardless of payment method.",
               resolutionGuidance:
                 "Retain cancellation SMS and digital TrxID. If MFS credit is delayed beyond 7 days, cross-check transaction with payment gateway.",
+            },
+          },
+          {
+            id: "req-refund-wallet",
+            code: "REQ-RW-05",
+            title: "Refund Destination Wallet",
+            category: "procedure",
+            value:
+              "Refund is credited only to the bKash/Nagad wallet used for payment; keep that wallet active until settlement",
+            mandatory: true,
+            applicability: {
+              field: "paymentChannel",
+              operator: "equals",
+              expected: "bkash_nagad",
+              humanLabel: "Ticket paid via bKash / Nagad",
+            },
+            reviewState: "official",
+            evidence: {
+              sourceId: "source-shohoz-portal",
+              excerpt: "MFS refunds are returned to the originating wallet account only.",
+              sectionOrPage: "FAQ Section 3",
             },
           },
         ],

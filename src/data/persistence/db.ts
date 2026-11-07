@@ -34,8 +34,14 @@ export class NiyomDexieDB extends Dexie {
 
 let dbInstance: NiyomDexieDB | null = null;
 
+/** Lets the UI tell the user that local saving failed, without coupling this layer to React. */
+export const STORAGE_ERROR_EVENT = "niyom:storage-error";
+function signalStorageError(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(STORAGE_ERROR_EVENT));
+}
+
 export function getDb(): NiyomDexieDB | null {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || typeof indexedDB === "undefined") {
     return null;
   }
   if (!dbInstance) {
@@ -81,6 +87,7 @@ export async function loadPersistedState(): Promise<{
     };
   } catch (error) {
     console.warn("Could not load from IndexedDB:", error);
+    signalStorageError();
     return {
       profile: null,
       readinessRecords: [],
@@ -97,6 +104,7 @@ export async function persistReadinessRecord(record: ReadinessRecord): Promise<v
     await db.readinessRecords.put(record);
   } catch (error) {
     console.warn("Failed to persist readiness record:", error);
+    signalStorageError();
   }
 }
 
@@ -108,6 +116,7 @@ export async function persistAllReadinessRecords(records: ReadinessRecord[]): Pr
     await db.readinessRecords.bulkPut(records);
   } catch (error) {
     console.warn("Failed to bulk persist readiness records:", error);
+    signalStorageError();
   }
 }
 
@@ -118,6 +127,7 @@ export async function persistProfile(profile: ApplicantProfile): Promise<void> {
     await db.profile.put({ id: "applicant_profile", data: profile });
   } catch (error) {
     console.warn("Failed to persist profile:", error);
+    signalStorageError();
   }
 }
 
@@ -128,6 +138,17 @@ export async function persistCommunityReport(report: CommunityReport): Promise<v
     await db.communityReports.put(report);
   } catch (error) {
     console.warn("Failed to persist community report:", error);
+    signalStorageError();
+  }
+}
+
+export async function deleteCommunityReport(id: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  try {
+    await db.communityReports.delete(id);
+  } catch (error) {
+    console.warn("Failed to delete community report:", error);
   }
 }
 
@@ -141,6 +162,7 @@ export async function persistActiveVersion(
     await db.activeVersions.put({ noticeId, versionNumber });
   } catch (error) {
     console.warn("Failed to persist active version:", error);
+    signalStorageError();
   }
 }
 
@@ -156,6 +178,6 @@ export async function clearPersistedData(): Promise<void> {
     ]);
   } catch (error) {
     console.warn("Failed to clear persisted data:", error);
+    signalStorageError();
   }
 }
-
