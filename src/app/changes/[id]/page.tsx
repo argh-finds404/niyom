@@ -1,35 +1,28 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
+import { SEED_NOTICES } from "@/data/seed/notices.seed";
+import { ChangesScreen } from "@/components/screens/ChangesScreen";
+import { ScreenSkeleton } from "@/components/ui/ScreenSkeleton";
 
 export function generateStaticParams() {
-  return [
-    { id: "notice-merit-2026" },
-    { id: "service-railway-refund" },
-    { id: "notice-ict-internship" },
-    { id: "procedure-epassport-rajshahi" },
-  ];
+  return SEED_NOTICES.map((n) => ({ id: n.id }));
 }
 
-async function ChangesContent({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return (
-    <main className="min-h-screen p-8">
-      <h1 className="text-2xl font-bold">Version Comparison: {id}</h1>
-      <p className="mt-2 text-neutral-600 dark:text-neutral-400">
-        Deterministic diff and corrigendum analysis.
-      </p>
-    </main>
-  );
+  const notice = SEED_NOTICES.find((n) => n.id === id);
+  return { title: notice ? `${notice.title} — version diff` : "Dossier not found" };
 }
 
-export default function ChangesPage(props: {
-  params: Promise<{ id: string }>;
-}) {
+async function ChangesContent({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (!SEED_NOTICES.some((n) => n.id === id)) notFound();
+  return <ChangesScreen id={id} />;
+}
+
+export default function ChangesPage(props: { params: Promise<{ id: string }> }) {
   return (
-    <Suspense fallback={<main className="min-h-screen p-8">Loading changes...</main>}>
+    <Suspense fallback={<ScreenSkeleton />}>
       <ChangesContent {...props} />
     </Suspense>
   );
