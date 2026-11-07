@@ -281,7 +281,7 @@ export function backendSuite(persistence: "memory" | "postgres") {
       expect(body.noticeId).toBe("notice-merit-2026");
       expect(body.timeline.totalLeadDays).toBeGreaterThan(0);
       expect(body.timeline.latestSafeStartDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(body.sharedFolderGroups).toHaveLength(3);
+      expect(body.sharedFolderGroups.map((g: { groupId: string }) => g.groupId)).toEqual(["folder-university"]);
       expect((await getPlan(req("/api/plan?notice=unknown", { device: A }))).status).toBe(404);
     });
 

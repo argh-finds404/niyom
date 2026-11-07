@@ -31,7 +31,8 @@ export function versionOf(notice: Notice, versionNumber: number): NoticeVersion 
 /** Pure: everything a screen needs about one dossier, derived from store state. */
 export function deriveIntelligence(
   notice: Notice,
-  state: Pick<ReturnType<typeof useNiyomStore.getState>, "profile" | "readinessRecords" | "communityReports">
+  state: Pick<ReturnType<typeof useNiyomStore.getState>, "profile" | "readinessRecords" | "communityReports">,
+  today?: Date
 ): DossierIntelligence {
   const activeVersion = versionOf(notice, notice.activeVersionNumber);
   const idx = notice.versions.indexOf(activeVersion);
@@ -49,8 +50,17 @@ export function deriveIntelligence(
     baselineVersion,
     readinessSummary,
     versionChanges: idx > 0 ? compareNoticeVersions(baselineVersion, activeVersion) : [],
-    timeline: computePreparationTimeline(notice, readinessSummary),
+    timeline: computePreparationTimeline(notice, readinessSummary, today),
   };
+}
+
+/**
+ * Today's date, known only after hydration: the server render and the first client render both
+ * have none, so they agree, and nothing date-dependent is frozen into the prerendered HTML.
+ */
+function useToday(): Date | undefined {
+  const hydrated = useNiyomStore((s) => s.isHydrated);
+  return useMemo(() => (hydrated ? new Date() : undefined), [hydrated]);
 }
 
 /** Intelligence for one dossier (defaults to the active dossier). */
@@ -61,11 +71,12 @@ export function useDossierIntelligence(noticeId?: string): DossierIntelligence |
   const readinessRecords = useNiyomStore((s) => s.readinessRecords);
   const communityReports = useNiyomStore((s) => s.communityReports);
   const id = noticeId ?? activeNoticeId;
+  const today = useToday();
 
   return useMemo(() => {
     const notice = notices.find((n) => n.id === id);
-    return notice ? deriveIntelligence(notice, { profile, readinessRecords, communityReports }) : null;
-  }, [notices, id, profile, readinessRecords, communityReports]);
+    return notice ? deriveIntelligence(notice, { profile, readinessRecords, communityReports }, today) : null;
+  }, [notices, id, profile, readinessRecords, communityReports, today]);
 }
 
 /** Intelligence for every dossier, in seed order. */
@@ -74,10 +85,11 @@ export function useAllIntelligence(): DossierIntelligence[] {
   const profile = useNiyomStore((s) => s.profile);
   const readinessRecords = useNiyomStore((s) => s.readinessRecords);
   const communityReports = useNiyomStore((s) => s.communityReports);
+  const today = useToday();
 
   return useMemo(
-    () => notices.map((n) => deriveIntelligence(n, { profile, readinessRecords, communityReports })),
-    [notices, profile, readinessRecords, communityReports]
+    () => notices.map((n) => deriveIntelligence(n, { profile, readinessRecords, communityReports }, today)),
+    [notices, profile, readinessRecords, communityReports, today]
   );
 }
 

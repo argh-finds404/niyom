@@ -224,19 +224,22 @@ describe("Counter-Day Timeline & Cross-Dossier Shared Folder Intelligence", () =
     expect(timeline.steps.length).toBeGreaterThanOrEqual(5);
   });
 
-  it("links shared physical folder documents across dossiers by strictness rank", () => {
-    const groups = computeSharedFolderGroups(SEED_NOTICES, DEFAULT_APPLICANT_PROFILE, []);
-    expect(groups).toHaveLength(3);
+  it("groups papers from the same office across dossiers, without claiming one satisfies another", () => {
+    const [university] = computeSharedFolderGroups(SEED_NOTICES, DEFAULT_APPLICANT_PROFILE, []);
+    expect(university.groupId).toBe("folder-university");
+    // Every member is a document (rules like a CGPA cut-off are not papers you collect).
+    const reqs = SEED_NOTICES.flatMap((n) => n.versions.flatMap((v) => v.requirements));
+    expect(university.peers.every((p) => reqs.find((r) => r.id === p.requirementId)?.category === "document")).toBe(true);
+    // It spans dossiers: the passport's registrar certificate sits with the Merit Grant's campus papers.
+    expect(new Set(university.peers.map((p) => p.noticeId)).size).toBeGreaterThan(1);
+    expect(university.pendingCount).toBe(university.peers.length);
 
-    const links = findCrossDossierLinksForRequirement(
-      "notice-merit-2026",
-      "req-transcript",
-      SEED_NOTICES,
-      DEFAULT_APPLICANT_PROFILE,
-      []
-    );
-    expect(links).not.toBeNull();
-    expect(links?.group.groupId).toBe("folder-academic-standing");
-    expect(links?.others.length).toBeGreaterThanOrEqual(2);
+    // Checking one paper changes only that paper.
+    const merit = SEED_NOTICES.find((n) => n.id === "notice-merit-2026")!;
+    const transcript = merit.versions[0].requirements.find((r) => r.id === "req-transcript")!;
+    const checked = [{ noticeId: merit.id, requirementId: "req-transcript", checked: true, verifiedAgainstValue: transcript.value, verifiedAgainstVersion: 1, updatedAt: "2026-11-01T00:00:00Z" }];
+    const links = findCrossDossierLinksForRequirement(merit.id, "req-transcript", SEED_NOTICES, DEFAULT_APPLICANT_PROFILE, checked);
+    expect(links?.self.status).toBe("completed");
+    expect(links?.others.every((p) => p.status !== "completed")).toBe(true);
   });
 });

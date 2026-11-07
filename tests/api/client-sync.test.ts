@@ -115,9 +115,9 @@ describe("client ↔ server sync", () => {
     expect(useNiyomStore.getState().myConfirmedIds).toContain(seed.id);
   });
 
-  it("supports bulk actions (checkAllRequired, reverifyBulk, clearDossierChecks) and preserves evidence memos", async () => {
-    const v1Reqs = [requirement("req-transcript"), requirement("req-student-id")];
-    useNiyomStore.getState().checkAllRequired(merit.id, v1Reqs, 1);
+  it("supports bulk actions (reverifyBulk, clearDossierChecks) and preserves evidence memos", async () => {
+    useNiyomStore.getState().toggleRequirementCheck(merit.id, requirement("req-transcript"), 1);
+    useNiyomStore.getState().toggleRequirementCheck(merit.id, requirement("req-student-id"), 1);
     useNiyomStore.getState().updateRequirementNote(merit.id, requirement("req-transcript"), 1, "Registrar Serial #409");
 
     await vi.waitFor(async () => {

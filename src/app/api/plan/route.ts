@@ -31,7 +31,7 @@ export const GET = route(async (request) => {
     saved.readinessRecords,
     await getReports(device.id, { noticeId: notice.id })
   );
-  const timeline = computePreparationTimeline(notice, summary);
+  const timeline = computePreparationTimeline(notice, summary, new Date());
   const sharedFolderGroups = computeSharedFolderGroups(notices, saved.profile, saved.readinessRecords);
 
   return withDevice(

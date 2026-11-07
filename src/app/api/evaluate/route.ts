@@ -36,7 +36,7 @@ export const POST = route(async (request) => {
 
   const notice = { ...base, activeVersionNumber: active };
   const summary = calculateNoticeReadiness(notice, profile, readinessRecords, await getReports(device.id, { noticeId }));
-  const timeline = computePreparationTimeline(notice, summary);
+  const timeline = computePreparationTimeline(notice, summary, new Date());
   const changes = active > base.versions[0].versionNumber ? compareNoticeVersions(base.versions[0], version) : [];
 
   return withDevice(
@@ -76,7 +76,7 @@ export const POST = route(async (request) => {
           reason: i.applicabilityReason,
           status: i.readinessStatus,
           evidenceNote: i.evidenceNote ?? null,
-          office: meta.office,
+          office: meta.office || null,
           leadDays: meta.leadDays,
           previouslyVerifiedValue: i.previouslyVerifiedValue ?? null,
           changedSinceFirstVersion: i.latestChange ? i.latestChange.type !== "unchanged" : false,

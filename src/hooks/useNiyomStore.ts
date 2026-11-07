@@ -52,7 +52,6 @@ export interface NiyomStoreState {
   toggleRequirementCheck: (noticeId: string, requirement: Requirement, versionNumber: number) => void;
   reverifyRequirement: (noticeId: string, requirement: Requirement, versionNumber: number) => void;
   reverifyBulk: (noticeId: string, requirements: Requirement[], versionNumber: number) => void;
-  checkAllRequired: (noticeId: string, requirements: Requirement[], versionNumber: number) => void;
   clearDossierChecks: (noticeId: string) => void;
   updateRequirementNote: (noticeId: string, requirement: Requirement, versionNumber: number, note: string) => void;
   updateProfile: (partial: Partial<ApplicantProfile>) => void;
@@ -371,33 +370,6 @@ export const useNiyomStore = create<NiyomStoreState>((set, get) => {
     },
 
     reverifyBulk: (noticeId, requirements, versionNumber) => {
-      if (requirements.length === 0) return;
-      const state = get();
-      const existingMap = new Map(
-        state.readinessRecords
-          .filter((r) => r.noticeId === noticeId)
-          .map((r) => [r.requirementId, r])
-      );
-      const at = now();
-      const batch: ReadinessRecord[] = requirements.map((req) => {
-        const existing = existingMap.get(req.id);
-        return {
-          noticeId,
-          requirementId: req.id,
-          checked: true,
-          verifiedAgainstValue: req.value,
-          verifiedAgainstVersion: versionNumber,
-          ...(existing?.note ? { note: existing.note } : {}),
-          updatedAt: at,
-        };
-      });
-      const records = mergeRecords(state.readinessRecords, batch);
-      set({ readinessRecords: records, demoScenarioStage: "custom" });
-      void persistAllReadinessRecords(records);
-      push({ readinessRecords: batch, demoScenarioStage: "custom" });
-    },
-
-    checkAllRequired: (noticeId, requirements, versionNumber) => {
       if (requirements.length === 0) return;
       const state = get();
       const existingMap = new Map(
