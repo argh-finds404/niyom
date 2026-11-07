@@ -1,6 +1,15 @@
-import { compareNoticeVersions, problem, route } from "@/app/api/_lib";
+import { compareNoticeVersions, problem, route, specChecksum } from "@/app/api/_lib";
 import { findSeedNotice } from "@/data/persistence/server-db";
 import { compareQuerySchema } from "@/domain/schemas";
+import { isIsoDate } from "@/lib/format";
+import { wordDiff } from "@/lib/wordDiff";
+
+function shiftDays(before: string | undefined, after: string | undefined): number | null {
+  if (!before || !after || !isIsoDate(before) || !isIsoDate(after)) return null;
+  const a = Date.parse(`${before}T00:00:00Z`);
+  const b = Date.parse(`${after}T00:00:00Z`);
+  return Math.round((b - a) / 86_400_000);
+}
 
 /** GET /api/compare?notice=…&from=1&to=3 — the deterministic redline between two published versions. */
 export const GET = route(async (request) => {
@@ -36,8 +45,18 @@ export const GET = route(async (request) => {
   const changes = compareNoticeVersions(from, to);
   return Response.json({
     notice: notice.id,
-    from: { number: from.versionNumber, label: from.versionLabel, publishedAt: from.publishedAt },
-    to: { number: to.versionNumber, label: to.versionLabel, publishedAt: to.publishedAt },
+    from: {
+      number: from.versionNumber,
+      label: from.versionLabel,
+      publishedAt: from.publishedAt,
+      specChecksum: specChecksum(from),
+    },
+    to: {
+      number: to.versionNumber,
+      label: to.versionLabel,
+      publishedAt: to.publishedAt,
+      specChecksum: specChecksum(to),
+    },
     summary: {
       critical: changes.filter((c) => c.type !== "unchanged" && c.impact === "critical").length,
       actionNeeded: changes.filter((c) => c.type !== "unchanged" && c.impact === "action-needed").length,
@@ -48,6 +67,8 @@ export const GET = route(async (request) => {
       ...c,
       before: previous?.value ?? null,
       after: current?.value ?? null,
+      wordDiff: c.type === "modified" && previous && current ? wordDiff(previous.value, current.value) : null,
+      deadlineShiftDays: c.deadlineDelta ? shiftDays(previous?.value, current?.value) : null,
     })),
   });
 });

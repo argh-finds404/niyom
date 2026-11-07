@@ -1,12 +1,36 @@
 // Shared helpers for the Route Handlers. Server-only: imports the pure engine, schemas and server ledger.
+import { createHash } from "node:crypto";
 import type { ZodType } from "zod";
-import type { RequirementChange } from "@/domain/types";
+import type { NoticeVersion, RequirementChange } from "@/domain/types";
 import { StoreUnavailableError, getNoticeFor } from "@/data/persistence/server-db";
 
 export { compareNoticeVersions } from "@/domain/comparison/compare";
 export { calculateNoticeReadiness } from "@/domain/readiness/calculate";
 
 export const isConsequentialChange = (c: RequirementChange) => c.type !== "unchanged" && c.impact !== "informational";
+
+/**
+ * Deterministic SHA-256 fingerprint of a published notice version's normative specification.
+ * Lets API callers verify whether two specification snapshots are byte-for-byte identical.
+ */
+export function specChecksum(version: NoticeVersion): string {
+  const canonical = {
+    versionNumber: version.versionNumber,
+    versionLabel: version.versionLabel,
+    publishedAt: version.publishedAt,
+    requirements: version.requirements.map((r) => ({
+      id: r.id,
+      code: r.code,
+      title: r.title,
+      category: r.category,
+      mandatory: r.mandatory,
+      value: r.value,
+      applicability: r.applicability ?? null,
+    })),
+  };
+  const hex = createHash("sha256").update(JSON.stringify(canonical)).digest("hex").slice(0, 12);
+  return `sha256:${hex}`;
+}
 
 /** A dossier, with the active version this device follows when a device is given. */
 export function findNotice(id: string, deviceId?: string) {

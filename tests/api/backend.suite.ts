@@ -195,8 +195,11 @@ export function backendSuite(persistence: "memory" | "postgres") {
       expect((await patched.json()).activeVersionNumber).toBe(3);
       const seenByA = await (await getDossierById(req("/api/dossiers/notice-merit-2026", { device: A }), params("notice-merit-2026"))).json();
       expect(seenByA.activeVersionNumber).toBe(3);
+      expect(seenByA.activeSpecChecksum).toMatch(/^sha256:[0-9a-f]{12}$/);
       const seenByB = await (await getDossierById(req("/api/dossiers/notice-merit-2026", { device: B }), params("notice-merit-2026"))).json();
       expect(seenByB.activeVersionNumber).toBe(1);
+      expect(seenByB.activeSpecChecksum).toMatch(/^sha256:[0-9a-f]{12}$/);
+      expect(seenByA.activeSpecChecksum).not.toBe(seenByB.activeSpecChecksum);
 
       const bad = await patchDossierById(
         req("/api/dossiers/notice-merit-2026", { method: "PATCH", device: A, body: { activeVersionNumber: 99 } }),
@@ -210,6 +213,14 @@ export function backendSuite(persistence: "memory" | "postgres") {
     it("computes the deterministic redline and validates its parameters", async () => {
       const body = await (await getCompare(req("/api/compare?notice=notice-merit-2026&from=1&to=3"))).json();
       expect(body.summary).toMatchObject({ critical: 3, actionNeeded: 1, cosmetic: 1 });
+      expect(body.from.specChecksum).toMatch(/^sha256:[0-9a-f]{12}$/);
+      expect(body.to.specChecksum).toMatch(/^sha256:[0-9a-f]{12}$/);
+      expect(body.from.specChecksum).not.toBe(body.to.specChecksum);
+      const transcriptDiff = body.changes.find((c: { requirementId: string }) => c.requirementId === "req-transcript");
+      expect(Array.isArray(transcriptDiff.wordDiff)).toBe(true);
+      expect(transcriptDiff.wordDiff.some((t: { kind: string }) => t.kind === "add")).toBe(true);
+      const deadlineDiff = body.changes.find((c: { requirementId: string }) => c.requirementId === "req-deadline");
+      expect(deadlineDiff.deadlineShiftDays).toBe(10);
       expect((await getCompare(req("/api/compare?notice=notice-merit-2026&from=3&to=1"))).status).toBe(400);
       expect((await getCompare(req("/api/compare?notice=notice-merit-2026&from=abc"))).status).toBe(400);
       expect((await getCompare(req("/api/compare?notice=nope"))).status).toBe(404);
@@ -232,6 +243,7 @@ export function backendSuite(persistence: "memory" | "postgres") {
       ).json();
       expect(explicit.readiness.staleChecks).toBe(1);
       expect(explicit.readiness.sourceConflicts).toBe(1);
+      expect(explicit.version.specChecksum).toMatch(/^sha256:[0-9a-f]{12}$/);
 
       // Saved state: device A drops below the CGPA cut-off.
       await putState(req("/api/state", { method: "PUT", device: A, body: { profile: { ...DEFAULT_APPLICANT_PROFILE, cgpa: 3.1 } } }));

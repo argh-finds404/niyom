@@ -8,6 +8,7 @@ import {
   problem,
   readDevice,
   route,
+  specChecksum,
   withDevice,
 } from "@/app/api/_lib";
 
@@ -39,7 +40,12 @@ export const POST = route(async (request) => {
   return withDevice(
     Response.json({
       noticeId,
-      version: { number: version.versionNumber, label: version.versionLabel, publishedAt: version.publishedAt },
+      version: {
+        number: version.versionNumber,
+        label: version.versionLabel,
+        publishedAt: version.publishedAt,
+        specChecksum: specChecksum(version),
+      },
       readiness: {
         percentage: summary.percentage,
         completedMandatory: summary.completedMandatoryCount,
