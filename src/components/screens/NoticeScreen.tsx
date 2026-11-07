@@ -7,7 +7,7 @@ import { useUiStore } from "@/hooks/useUiStore";
 import { useWatchStore } from "@/hooks/useWatchStore";
 import { useDossierIntelligence } from "@/hooks/useDossierIntelligence";
 import { chapterOf } from "@/lib/chapters";
-import { FRESHNESS_LABEL, REQUIREMENT_GROUPS, formatDate, isConsequential, shortTitle, versionTag } from "@/lib/format";
+import { FRESHNESS_LABEL, REQUIREMENT_GROUPS, formatDate, isConsequential, shortTitle, versionPhrase, versionTag } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Page } from "@/components/ui/Page";
 import { NoticeObject } from "@/components/ui/NoticeObject";
@@ -43,7 +43,7 @@ export function VersionList({ noticeId }: { noticeId: string }) {
                   on ? "bg-ink/[0.08] text-ink" : "text-ink-3 hover:bg-ink/[0.04] hover:text-ink"
                 )}
               >
-                <span className="code w-10 flex-none text-[16px]">{versionTag(v.versionLabel)}</span>
+                <span className="code w-[74px] flex-none text-[15px]">{versionTag(v)}</span>
                 <span className={cn("min-w-0 flex-1 truncate text-[16px]", on && "font-semibold")}>{v.versionLabel.split(" ").slice(1).join(" ")}</span>
                 <span className="num flex-none text-[14px] italic">{formatDate(v.publishedAt)}</span>
               </button>
@@ -94,8 +94,8 @@ export function NoticeScreen({ id }: { id: string }) {
 
   if (!intel) return null;
   const { notice, activeVersion, baselineVersion, readinessSummary: s, versionChanges } = intel;
-  const tag = versionTag(activeVersion.versionLabel);
-  const baselineTag = versionTag(baselineVersion.versionLabel);
+  const tag = versionTag(activeVersion);
+  const baselineTag = versionTag(baselineVersion);
   const groups = REQUIREMENT_GROUPS.map((g) => ({ ...g, items: s.items.filter((i) => i.requirement.category === g.id) })).filter(
     (g) => g.items.length > 0
   );
@@ -104,13 +104,13 @@ export function NoticeScreen({ id }: { id: string }) {
 
   const layers: [string, number, boolean, typeof FileText][] = [
     ["official requirements", activeVersion.requirements.length, false, FileText],
-    [`changes since ${baselineTag}`, consequential, false, GitCompareArrows],
+    [`changes since ${versionPhrase(baselineVersion)}`, consequential, false, GitCompareArrows],
     ["source conflicts", s.conflictCount, s.conflictCount > 0, Scale],
     ["field reports", s.communityReportCount, false, MessageSquareText],
   ];
 
   return (
-    <Page chapter={chapterOf(notice.id)}>
+    <Page chapter={chapterOf(notice.id)} engrave={tag}>
       <div className="grid grid-cols-1 gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
         {/* The book stays pinned while you read, as on a Stripe Press book page; nothing here clips its 3D. */}
         <aside className="lg:sticky lg:top-[calc(var(--bar-h)+24px)] lg:self-start">

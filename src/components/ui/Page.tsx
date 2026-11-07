@@ -11,11 +11,16 @@ import { cn } from "@/lib/utils";
 export function Page({
   chapter,
   bleed = false,
+  engrave,
+  bengali = false,
   children,
   className,
 }: {
   chapter?: Chapter;
   bleed?: boolean;
+  /** A word engraved large behind the page's first screen, drifting slower than the page as it scrolls. */
+  engrave?: string;
+  bengali?: boolean;
   children: ReactNode;
   className?: string;
 }) {
@@ -33,8 +38,20 @@ export function Page({
     <ViewTransition enter="page" exit="page" default="none">
       <div
         data-page-chapter={chapter}
-        className={cn(!bleed && "mx-auto w-full max-w-[1240px] px-4 pb-24 pt-8 sm:px-8 lg:px-10 lg:pt-12", className)}
+        className={cn(!bleed && "mx-auto w-full max-w-[1240px] px-4 pb-24 pt-8 sm:px-8 lg:px-10 lg:pt-12", engrave && "relative", className)}
       >
+        {engrave && (
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[100svh] overflow-hidden">
+            <span
+              className={cn(
+                "drift absolute right-[2%] top-[3%] select-none whitespace-nowrap leading-none text-transparent [-webkit-text-stroke:1.25px_color-mix(in_srgb,var(--ink)_12%,transparent)]",
+                bengali ? "font-bengali text-[clamp(110px,19vw,300px)]" : "text-[clamp(96px,15vw,230px)] font-semibold italic tracking-[-0.03em]"
+              )}
+            >
+              {engrave}
+            </span>
+          </div>
+        )}
         {children}
       </div>
     </ViewTransition>

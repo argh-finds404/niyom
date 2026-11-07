@@ -111,7 +111,7 @@ export function ExploreScreen() {
         id: "version",
         header: "Version",
         sortValue: (r) => r.intel.activeVersion.versionNumber,
-        cell: (r) => <Stamp tone="plain">{versionTag(r.intel.activeVersion.versionLabel)}</Stamp>,
+        cell: (r) => <Stamp tone="plain">{versionTag(r.intel.activeVersion)}</Stamp>,
       },
       {
         id: "changes",
@@ -159,7 +159,7 @@ export function ExploreScreen() {
   );
 
   return (
-    <Page>
+    <Page engrave="তালিকা" bengali>
       <header data-rail="Search" className="max-w-[760px]">
         <h1 className="display text-[44px] sm:text-[56px]">Directory</h1>
         <p className="mt-4 text-[22px] italic leading-snug text-ink-2">
@@ -320,7 +320,7 @@ export function ExploreScreen() {
           {visible.map(({ intel, hits, changes }) => {
             const { notice, activeVersion, readinessSummary: s } = intel;
             const freshest = notice.sources.reduce((a, b) => (a.lastReviewedAt > b.lastReviewedAt ? a : b));
-            const tag = versionTag(activeVersion.versionLabel);
+            const tag = versionTag(activeVersion);
             return (
               <li
                 key={notice.id}

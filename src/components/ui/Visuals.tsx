@@ -64,7 +64,7 @@ export function VersionTrack({ notice, className, showDates = true }: { notice: 
   );
   return (
     <ol
-      aria-label={`Published versions: ${steps.map((s) => `${versionTag(s.v.versionLabel)}${s.matter ? `, ${s.matter} changes that matter` : ""}`).join("; ")}`}
+      aria-label={`Published versions: ${steps.map((s) => `${versionTag(s.v)}${s.matter ? `, ${s.matter} changes that matter` : ""}`).join("; ")}`}
       className={cn("relative grid", className)}
       style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
     >
@@ -82,7 +82,7 @@ export function VersionTrack({ notice, className, showDates = true }: { notice: 
                 active && "scale-110 shadow-[0_0_0_4px_color-mix(in_srgb,currentColor_22%,transparent)]"
               )}
             />
-            <span className={cn("code mt-2 block text-[14.5px]", active ? "opacity-100" : "opacity-70")}>{versionTag(v.versionLabel)}</span>
+            <span className={cn("code mt-2 block text-[14.5px]", active ? "opacity-100" : "opacity-70")}>{versionTag(v)}</span>
             {showDates && <span className="num block text-[13px] italic opacity-60">{formatDate(v.publishedAt)}</span>}
             {i > 0 && (
               <span className="block truncate text-[13px] italic opacity-75">{matter ? `${matter} that matter${matter === 1 ? "s" : ""}` : "cosmetic"}</span>

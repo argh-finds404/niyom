@@ -5,7 +5,7 @@ import type { EvaluatedRequirementItem, Notice, NoticeVersion } from "@/domain/t
 import { getRequirementOfficeMeta } from "@/domain";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
-import { versionTag } from "@/lib/format";
+import { versionPhrase, versionTag } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button, Check, Stamp, withViewTransition } from "@/components/ui/primitives";
 import { Redline } from "./parts";
@@ -40,7 +40,7 @@ export function RequirementEntry({
   const done = readinessStatus === "completed";
   const exempt = item.applicability === "DOES_NOT_APPLY";
   const review = item.applicability === "NEEDS_REVIEW";
-  const tag = versionTag(activeVersion.versionLabel);
+  const tag = versionTag(activeVersion);
   const escalated = latestChange?.type === "modified" && latestChange.previous && !latestChange.previous.mandatory && r.mandatory;
   const changed = latestChange && latestChange.type !== "unchanged";
   const officeMeta = getRequirementOfficeMeta(r.id, activeVersion.versionNumber);
@@ -63,7 +63,7 @@ export function RequirementEntry({
 
   const onReverify = () => {
     withViewTransition(() => reverify(notice.id, r, activeVersion.versionNumber));
-    toast({ tone: "ok", title: `${r.title} re-verified`, body: `Your check now holds against ${tag}.` });
+    toast({ tone: "ok", title: `${r.title} re-verified`, body: `Your check now holds against ${versionPhrase(activeVersion)}.` });
   };
   const open = () => openInspector({ noticeId: notice.id, requirementId: r.id });
 
@@ -100,7 +100,7 @@ export function RequirementEntry({
           <span>
             {r.mandatory ? "Required" : "Optional"}
             {exempt ? ", not for your profile" : review ? ", depends on a field you have not filled" : ""}
-            {hydrated && done && <span className="text-ok">, checked against {tag}</span>}
+            {hydrated && done && <span className="text-ok">, checked against {versionPhrase(activeVersion)}</span>}
           </span>
           {!exempt && officeMeta.office && officeMeta.leadDays > 0 && (
             <span className="num">

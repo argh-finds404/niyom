@@ -318,7 +318,7 @@ export function Rail() {
                   <span
                     aria-hidden
                     className={cn(
-                      "pointer-events-none absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-[6px] px-2 py-0.5 text-[16px] font-semibold leading-tight transition-[opacity,transform] duration-300 ease-out",
+                      "pointer-events-none absolute left-[calc(100%+6px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-[5px] px-1.5 py-px text-[12px] font-semibold leading-tight transition-[opacity,transform] duration-300 ease-out",
                       named === i ? "translate-x-0 opacity-100" : "-translate-x-1.5 opacity-0"
                     )}
                     style={{ background: bg ? `color-mix(in srgb, ${bg} 88%, transparent)` : undefined }}

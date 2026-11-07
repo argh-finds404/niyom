@@ -9,7 +9,7 @@ import { useUiStore } from "@/hooks/useUiStore";
 import { useWatchStore } from "@/hooks/useWatchStore";
 import { useDossierIntelligence, versionOf } from "@/hooks/useDossierIntelligence";
 import { chapterOf } from "@/lib/chapters";
-import { dayDelta, formatDate, isConsequential, isCosmetic, shortTitle, versionTag } from "@/lib/format";
+import { asPhrase, dayDelta, formatDate, isConsequential, isCosmetic, shortTitle, versionPhrase, versionTag } from "@/lib/format";
 import { wordDiff } from "@/lib/wordDiff";
 import { cn } from "@/lib/utils";
 import { Page } from "@/components/ui/Page";
@@ -77,18 +77,18 @@ function ChangeCard({ change, fromTag, toTag, toIsActive, noticeId }: { change: 
 
       <div className="mt-5 grid grid-cols-1 sm:grid-cols-2">
         <div className="min-w-0 break-words bg-ink/[0.035] px-6 py-5">
-          <p className="text-[14.5px] italic text-ink-3">Before, {fromTag}</p>
+          <p className="text-[14.5px] italic text-ink-3">Before ({fromTag})</p>
           {prev ? (
             <>
               <p className="mt-1.5 text-[16.5px] leading-relaxed text-ink-2">{tokens ? <RedlineText tokens={tokens} side="before" /> : prev.value}</p>
               <p className="mt-2 text-[14px] text-ink-3">{prev.mandatory ? "Required" : "Optional"}</p>
             </>
           ) : (
-            <p className="mt-1.5 text-[16.5px] italic text-ink-3">Not in {fromTag}.</p>
+            <p className="mt-1.5 text-[16.5px] italic text-ink-3">Not in {asPhrase(fromTag)}.</p>
           )}
         </div>
         <div className="min-w-0 break-words px-6 py-5">
-          <p className="text-[14.5px] italic text-ink-3">After, {toTag}</p>
+          <p className="text-[14.5px] italic text-ink-3">After ({toTag})</p>
           {curr ? (
             <>
               <p className="mt-1.5 text-[16.5px] leading-relaxed">{tokens ? <RedlineText tokens={tokens} side="after" /> : curr.value}</p>
@@ -198,8 +198,8 @@ export function ChangesScreen({ id }: { id: string }) {
 
   if (!intel || !notice || !fromV || !toV) return null;
 
-  const fromTag = versionTag(fromV.versionLabel);
-  const toTag = versionTag(toV.versionLabel);
+  const fromTag = versionTag(fromV);
+  const toTag = versionTag(toV);
   const changed = changes.filter((c) => c.type !== "unchanged");
   const matter = changed.filter(isConsequential);
   const cosmetic = changed.filter(isCosmetic);
@@ -216,7 +216,7 @@ export function ChangesScreen({ id }: { id: string }) {
   const choose = (p: [number, number]) => withViewTransition(() => setPair(p));
 
   return (
-    <Page chapter={chapterOf(notice.id)}>
+    <Page chapter={chapterOf(notice.id)} engrave="সংশোধনী" bengali>
       <header data-rail="Summary" className="max-w-[820px]">
         <p className="text-[16px] italic text-ink-3">{notice.institution}</p>
         <h1 className="display mt-3 text-[38px] sm:text-[52px]">What changed in {shortTitle(notice)}</h1>
@@ -241,8 +241,8 @@ export function ChangesScreen({ id }: { id: string }) {
                   )}
                 >
                   <span className="code flex items-center gap-1.5 text-[16px]">
-                    {versionTag(versionOf(notice, p.from).versionLabel)} <ArrowRight className="h-3.5 w-3.5" />{" "}
-                    {versionTag(versionOf(notice, p.to).versionLabel)}
+                    {versionTag(versionOf(notice, p.from))} <ArrowRight className="h-3.5 w-3.5" />{" "}
+                    {versionTag(versionOf(notice, p.to))}
                   </span>
                   <span className={cn("text-[14.5px] italic", on ? "opacity-80" : "text-ink-3")}>{p.label}</span>
                 </button>
@@ -264,7 +264,7 @@ export function ChangesScreen({ id }: { id: string }) {
         </p>
         {!toIsActive && (
           <p className="mt-4 flex flex-wrap items-center gap-3 text-[16px] italic text-ink-2">
-            Your checklist follows {versionTag(intel.activeVersion.versionLabel)}.
+            Your checklist follows {versionPhrase(intel.activeVersion)}.
             <Button size="sm" onClick={() => setVersion(notice.id, to)}>
               Follow {toTag} instead
             </Button>
@@ -300,7 +300,7 @@ export function ChangesScreen({ id }: { id: string }) {
 
         {shown.length === 0 ? (
           <p className="mt-8 rounded-[var(--r-panel)] bg-ink/[0.035] px-6 py-12 text-center text-[19px] italic text-ink-3">
-            {filter === "cosmetic" ? "No cosmetic edits" : "Nothing that matters changed"} between {fromTag} and {toTag}.
+            {filter === "cosmetic" ? "No cosmetic edits" : "Nothing that matters changed"} between {asPhrase(fromTag)} and {toTag}.
           </p>
         ) : (
           <ul className="mt-6 space-y-5">
@@ -319,7 +319,7 @@ export function ChangesScreen({ id }: { id: string }) {
 
         <ActionRows className="mt-14 max-w-[520px]">
           <ActionRowLink href="/my-plan" label="Open my preparation plan" />
-          <ActionRowLink href={`/notice/${notice.id}`} label="Read all requirements" meta={versionTag(intel.activeVersion.versionLabel)} />
+          <ActionRowLink href={`/notice/${notice.id}`} label="Read all requirements" meta={versionTag(intel.activeVersion)} />
         </ActionRows>
       </section>
     </Page>

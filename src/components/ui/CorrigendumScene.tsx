@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { calculateNoticeReadiness, compareNoticeVersions } from "@/domain";
 import type { RequirementChange } from "@/domain/types";
 import { DEFAULT_APPLICANT_PROFILE, SEED_NOTICES } from "@/data/seed/notices.seed";
-import { dayDelta, formatDate, isConsequential, shortTitle, versionTag } from "@/lib/format";
+import { asPhrase, dayDelta, formatDate, isConsequential, shortTitle, versionTag } from "@/lib/format";
 import { wordDiff } from "@/lib/wordDiff";
 import { Container } from "@/components/ui/Page";
 
@@ -51,8 +51,8 @@ function useScript() {
     };
     return {
       title: shortTitle(notice),
-      from: versionTag(first.versionLabel),
-      to: versionTag(last.versionLabel),
+      from: versionTag(first),
+      to: versionTag(last),
       clauses: changes.map((c) => ({
         id: c.requirementId,
         title: c.title,
@@ -155,7 +155,7 @@ export function CorrigendumScene() {
   }, [n, readiness]);
 
   return (
-    <section ref={ref} data-rail="A corrigendum, word by word" data-cover="film" aria-labelledby="scene" className="scene film relative -ml-[var(--rail-w)] pl-[var(--rail-w)]" style={v({ "--p": 0, "--n": n })}>
+    <section ref={ref} data-rail="The corrigendum" data-cover="film" aria-labelledby="scene" className="scene film relative -ml-[var(--rail-w)] pl-[var(--rail-w)]" style={v({ "--p": 0, "--n": n })}>
       <div className="scene-stage film sticky top-[var(--bar-h)] flex h-[calc(100svh-var(--bar-h))] flex-col justify-center overflow-hidden">
         <span aria-hidden className="film-sprockets left-0" />
         <span aria-hidden className="film-sprockets right-0" />
@@ -163,7 +163,7 @@ export function CorrigendumScene() {
         <span aria-hidden className="film-vignette" />
         <Container className="flex h-full flex-col py-8">
           <h2 id="scene" className="text-[16px] italic text-ink-3">
-            {title}, {from} to {to}. Scroll, and watch what a corrigendum does to a prepared applicant.
+            {title}, from {asPhrase(from)} to {to}. Scroll, and watch what a corrigendum does to a prepared applicant.
           </h2>
 
           {/* Screen readers get the whole story at once; the stage below is its animation. */}
@@ -234,7 +234,7 @@ export function CorrigendumScene() {
                   </li>
                 ))}
               </ol>
-              <span className="scene-stamp code rounded-[var(--r-mark)] border-[2px] border-crit px-3 py-1 text-[17px] text-crit">Corrigendum</span>
+              <span className="scene-stamp code rounded-[var(--r-mark)] border-[2.5px] border-crit px-4 py-1.5 text-[21px] text-crit outline outline-1 outline-offset-[3px] outline-crit/60 sm:px-5 sm:text-[28px]">Corrigendum</span>
             </div>
           </div>
         </Container>

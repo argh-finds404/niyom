@@ -83,7 +83,7 @@ function CircularFace({ notice, version, index, changed, consequential, dropping
         <p className="mt-[3cqw] line-clamp-3 text-[7.4cqw] font-semibold leading-[1.12] tracking-[-0.01em]">{notice.title}</p>
         <span className="mt-[4cqw] block h-px w-[16cqw]" style={{ background: INK }} />
         <p className="mt-[3cqw] text-[5.2cqw] italic leading-tight">
-          {versionTag(version.versionLabel)} · {version.versionLabel.split(" ").slice(1).join(" ")}
+          {versionTag(version)} · {version.versionLabel.split(" ").slice(1).join(" ")}
         </p>
         <p className="num mt-[1cqw] text-[4.4cqw]" style={{ color: MUTED }}>
           {formatDate(version.publishedAt)}
@@ -146,7 +146,7 @@ function TicketFace({ version, index, changed, consequential, dropping, colors }
         <div className="flex flex-1 flex-col px-[4cqw] py-[2.8cqw]">
           <p className="text-[4.8cqw] font-semibold leading-none tracking-[-0.01em]">Dhaka → Rajshahi</p>
           <p className="mt-[1.4cqw] text-[2.7cqw] italic" style={{ color: MUTED }}>
-            Cancellation & refund terms {versionTag(version.versionLabel)}, {formatDate(version.publishedAt)}
+            Cancellation & refund terms {versionTag(version)}, {formatDate(version.publishedAt)}
           </p>
           <div className="mt-auto">
             <Lines count={4} changed={changed} widths={[94, 80, 88, 62]} gap="1.3cqw" h="1.1cqw" />
@@ -160,7 +160,7 @@ function TicketFace({ version, index, changed, consequential, dropping, colors }
           </p>
           <p className="num text-[3cqw] font-semibold tracking-[0.12em]">•••• ••••</p>
         </div>
-        <p className="code text-[5cqw] leading-none">{versionTag(version.versionLabel)}</p>
+        <p className="code text-[5cqw] leading-none">{versionTag(version)}</p>
         {/* Barcode */}
         <div className="flex h-[7cqw] items-stretch gap-[0.45cqw]">
           {[2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2].map((w, i) => (
@@ -195,7 +195,7 @@ function CodeFace({ version, index, changed, consequential, dropping, colors }: 
         ))}
         <span className="ml-[2cqw] truncate text-[2.8cqw] opacity-70">fellowship-2026.md</span>
         <span className="code ml-auto text-[2.8cqw]" style={{ color: colors.cover }}>
-          {versionTag(version.versionLabel)}
+          {versionTag(version)}
         </span>
       </div>
       <div className="px-[3.4cqw] pt-[3.2cqw]">
@@ -260,7 +260,7 @@ function PassportFace({ notice, version, index, changed, consequential, dropping
         </p>
         <p className="mt-[2cqw] text-[5.4cqw] italic leading-tight">{version.versionLabel.split(" ").slice(1).join(" ")}</p>
         <p className="num mt-[1cqw] text-[4cqw]" style={{ color: MUTED }}>
-          {versionTag(version.versionLabel)}, {formatDate(version.publishedAt)}
+          {versionTag(version)}, {formatDate(version.publishedAt)}
         </p>
         <div className="mt-[7cqw]">
           <Lines count={6} changed={changed} widths={[90, 76, 84, 66, 88, 58]} gap="3.2cqw" h="2cqw" />
@@ -291,7 +291,7 @@ function PassportFace({ notice, version, index, changed, consequential, dropping
           className="code absolute right-[-1cqw] top-[16cqw] rounded-l-[1.4cqw] bg-[#fbf6ee] py-[1.2cqw] pl-[2.4cqw] pr-[3.4cqw] text-[4cqw] shadow-[0_2px_6px_rgba(0,0,0,0.2)]"
           style={{ color: INK }}
         >
-          {versionTag(version.versionLabel)}
+          {versionTag(version)}
         </span>
       </div>
     </div>

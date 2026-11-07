@@ -940,25 +940,48 @@ dialog[data-closing] .ov-top {
   transition: color 400ms var(--ease-out);
 }
 
-/* Pages riffle over after the cover (NoticeObject), one after another, and stay turned. */
+/* Pages riffle over after the cover (NoticeObject), one after another, and stay turned.
+   The depth offset sits inside the turn, so a turned page lands above the ones before it,
+   flat against them: no gap at the spine. */
 @keyframes leaf-y {
   from {
-    transform: translateZ(var(--z)) rotateY(0deg);
+    transform: rotateY(0deg) translateZ(var(--z));
   }
   to {
-    transform: translateZ(var(--z)) rotateY(calc(-168deg + var(--k) * 2deg));
+    transform: rotateY(-178deg) translateZ(var(--z));
   }
 }
 @keyframes leaf-x {
   from {
-    transform: translateZ(var(--z)) rotateX(0deg);
+    transform: rotateX(0deg) translateZ(var(--z));
   }
   to {
-    transform: translateZ(var(--z)) rotateX(calc(168deg - var(--k) * 2deg));
+    transform: rotateX(178deg) translateZ(var(--z));
   }
 }
 .book-leaf {
-  transform: translateZ(var(--z));
+  transform: rotateY(0deg) translateZ(var(--z));
+}
+
+/* Links that draw their underline in from the left. */
+.link-draw {
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 100% / 0 1px;
+  padding-bottom: 2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-size 420ms var(--ease-spring);
+}
+.link-draw:hover,
+.link-draw:focus-visible,
+.group:hover .link-draw,
+.group:focus-visible .link-draw {
+  background-size: 100% 1px;
+}
+
+/* Quiet scrollbars everywhere: thin, in the ink of whatever they scroll. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 24%, transparent) transparent;
 }
 [data-open] .book-leaf-y {
   animation: leaf-y 1050ms var(--ease-spring) calc(280ms + var(--k) * 180ms) both;

@@ -50,7 +50,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
         group: "Dossiers",
         title: shortTitle(n),
         hint: `${CATEGORY_LABEL[n.category]} · ${n.institution}`,
-        code: versionTag(v.versionLabel),
+        code: versionTag(v),
         keywords: `${n.title} ${n.institution} ${n.departmentOrTrust} ${n.category} ${n.zone}`,
         run: go(`/notice/${n.id}`, n.id),
       });

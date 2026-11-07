@@ -9,7 +9,7 @@ import { useWatchStore } from "@/hooks/useWatchStore";
 import { useAllIntelligence } from "@/hooks/useDossierIntelligence";
 import { deriveAlerts } from "@/lib/alerts";
 import { chapterOf } from "@/lib/chapters";
-import { formatDate, plural, shortTitle } from "@/lib/format";
+import { formatDate, plural, shortTitle, versionTag } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const SEED_SEEN = Object.fromEntries(SEED_NOTICES.map((n) => [n.id, n.activeVersionNumber]));
@@ -83,10 +83,8 @@ export function AlertsButton({ popoverId = "alerts" }: { popoverId?: string }) {
           <ul className="px-2 pb-2">
             {alerts.map((a) => {
               const n = notices.find((x) => x.id === a.noticeId)!;
-              const from = n.versions.find((v) => v.versionNumber === a.fromVersion)!;
               const to = n.versions.find((v) => v.versionNumber === a.toVersion)!;
-              const fromTag = from.versionLabel.split(" ")[0];
-              const toTag = to.versionLabel.split(" ")[0];
+              const toTag = versionTag(to);
               return (
                 <li key={a.noticeId} className="anim-rise rounded-[var(--r-card)] p-3 transition-colors hover:bg-[#1c1b19]/[0.04]">
                   <div className="flex gap-3">
@@ -112,7 +110,7 @@ export function AlertsButton({ popoverId = "alerts" }: { popoverId?: string }) {
                           onClick={() => hide(popoverId)}
                           className="inline-flex h-8 items-center rounded-[var(--r-control)] bg-[#1c1b19] px-3 text-[14.5px] font-semibold text-[#f2f1ed] transition-colors hover:bg-[#1c1b19]/85"
                         >
-                          Review {fromTag} to {toTag}
+                          See what changed in {toTag}
                         </Link>
                         <button
                           type="button"

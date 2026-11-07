@@ -7,7 +7,7 @@ import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
 import { useDossierIntelligence } from "@/hooks/useDossierIntelligence";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { APPLICABILITY_LABEL, REVIEW_LABEL, shortTitle, versionTag } from "@/lib/format";
+import { APPLICABILITY_LABEL, REVIEW_LABEL, shortTitle, versionPhrase, versionTag } from "@/lib/format";
 import { chapterOf } from "@/lib/chapters";
 import { cn } from "@/lib/utils";
 import { Button, Check, Overlay, Stamp, withViewTransition } from "@/components/ui/primitives";
@@ -67,8 +67,8 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
 
   const { notice, activeVersion, baselineVersion } = intel;
   const r = item.requirement;
-  const tag = versionTag(activeVersion.versionLabel);
-  const baseTag = versionTag(baselineVersion.versionLabel);
+  const tag = versionTag(activeVersion);
+  const baseTag = versionTag(baselineVersion);
   const stale = item.readinessStatus === "needs_reverification";
   const changed = item.latestChange && item.latestChange.type === "modified" && item.latestChange.previous;
   const officeMeta = getRequirementOfficeMeta(r.id, activeVersion.versionNumber);
@@ -123,7 +123,7 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
                 className="mt-4"
                 onClick={() => {
                   withViewTransition(() => reverify(notice.id, r, activeVersion.versionNumber));
-                  toast({ tone: "ok", title: `${r.title} re-verified`, body: `Your check now holds against ${tag}.` });
+                  toast({ tone: "ok", title: `${r.title} re-verified`, body: `Your check now holds against ${versionPhrase(activeVersion)}.` });
                 }}
               >
                 I have the updated document
@@ -139,7 +139,7 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
                 onToggle={() => withViewTransition(() => toggle(notice.id, r, activeVersion.versionNumber))}
               />
               <span className="text-[17px]">
-                {item.readinessStatus === "completed" ? `Checked against ${tag}` : "Not checked yet"}
+                {item.readinessStatus === "completed" ? `Checked against ${versionPhrase(activeVersion)}` : "Not checked yet"}
               </span>
             </label>
           )}
@@ -238,7 +238,7 @@ function Body({ noticeId, requirementId, onClose }: { noticeId: string; requirem
         )}
 
         {changed && (
-          <Section title={`What changed since ${baseTag}`}>
+          <Section title={`What changed since ${versionPhrase(baselineVersion)}`}>
             {latestValueChanged(item) ? (
               <Redline before={item.latestChange!.previous!.value} after={r.value} fromTag={baseTag} toTag={tag} />
             ) : (

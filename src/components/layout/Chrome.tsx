@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Menu, Search, X } from "lucide-react";
+import { CalendarClock, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
 import { useScenarios } from "@/hooks/useScenarios";
 import { useAllIntelligence, useDossierIntelligence } from "@/hooks/useDossierIntelligence";
 import { chapterOf } from "@/lib/chapters";
-import { isConsequential, shortTitle, versionTag } from "@/lib/format";
+import { formatDate, isConsequential, shortTitle, versionTag } from "@/lib/format";
+import { daysPhrase, daysUntil, deadlineOf } from "@/lib/deadline";
 import { Button, Overlay, Skel } from "@/components/ui/primitives";
 import { ConfirmAction } from "@/components/ui/ConfirmAction";
 import { Logo, Mark } from "@/components/ui/Logo";
@@ -58,8 +59,8 @@ function WalkthroughList({ onDone }: { onDone?: () => void }) {
   const pathname = usePathname();
   const s = useScenarios();
   const steps: [string, string, () => void, boolean][] = [
-    ["Start prepared on v1.0", "Every required Merit Grant item checked against the original circular.", s.baseline, stage === "v1_ready"],
-    ["A corrigendum arrives", "Version 2.0 is published. Watch which of your checks it invalidates.", s.simulateCorrigendum, stage === "v2_updated"],
+    ["Start prepared on the original", "Every required Merit Grant item checked against the original circular.", s.baseline, stage === "v1_ready"],
+    ["A corrigendum arrives", "An update to the notice is published. Watch which of your checks it invalidates.", s.simulateCorrigendum, stage === "v2_updated"],
     ["The railway refund case", "Two official sources disagree, and applicants report delays.", s.openRailway, pathname.startsWith("/notice/service-railway-refund")],
   ];
   return (
@@ -286,7 +287,7 @@ export function MobileMenu() {
                     notice.id === activeNoticeId && "ring-2 ring-ink ring-offset-2 ring-offset-ground"
                   )}
                 >
-                  <span className="code text-[13px] text-ink-2">{versionTag(activeVersion.versionLabel)}</span>
+                  <span className="code text-[13px] text-ink-2">{versionTag(activeVersion)}</span>
                   <span>
                     <span className="block text-[15px] font-semibold leading-tight">{shortTitle(notice)}</span>
                     <span className="num text-[13px] italic text-ink-2">{hydrated ? `${s.percentage}% ready` : "…"}</span>
@@ -318,27 +319,40 @@ export function MobileMenu() {
 
 /* ───────────── Footer: the colophon ───────────── */
 
-/** Where your work is right now, in one sentence. */
-function SyncStatus() {
-  const status = useNiyomStore((s) => s.backendStatus);
-  const at = useNiyomStore((s) => s.lastSyncedAt);
-  const time = at ? new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
+/** The next closing date across every dossier: the one thing worth remembering on the way out. */
+function NextClosing() {
+  const all = useAllIntelligence();
+  const hydrated = useNiyomStore((s) => s.isHydrated);
+  const setActiveNotice = useNiyomStore((s) => s.setActiveNotice);
+  // "Today" is read only after hydration, so the server and first client render agree.
+  const next = hydrated
+    ? all
+        .map(({ notice, activeVersion }) => {
+          const d = deadlineOf(activeVersion);
+          return d ? { notice, version: activeVersion, date: d.date, days: daysUntil(d.date) } : null;
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null && x.days >= 0)
+        .sort((x, y) => x.days - y.days)[0]
+    : undefined;
+  if (!next) return <p className="min-h-[1.6em]">{hydrated ? "No open deadlines in your dossiers." : ""}</p>;
   return (
-    <p className="flex items-baseline gap-2.5" role="status" aria-live="polite">
-      <span
-        aria-hidden
-        className={cn("h-2 w-2 flex-none translate-y-[-1px] rounded-full", status === "online" ? "bg-[#7fc49a]" : status === "offline" ? "bg-[#e0a84f]" : "bg-current opacity-40")}
-      />
-      {status === "online"
-        ? `Saved on this device and backed up to the NIYOM server${time ? `, last at ${time}` : ""}.`
-        : status === "offline"
-          ? "Offline. Your changes are saved on this device and will be sent when the connection returns."
-          : "Connecting to the NIYOM server…"}
+    <p>
+      <CalendarClock aria-hidden className="mr-2 inline h-4 w-4 -translate-y-px text-cover-ink/60" />
+      <span>
+        Next to close:{" "}
+        <Link href={`/notice/${next.notice.id}`} onClick={() => setActiveNotice(next.notice.id)} className="link-draw font-semibold text-cover-ink">
+          {shortTitle(next.notice)}
+        </Link>
+        , {formatDate(next.date)}, {daysPhrase(next.days)}.
+      </span>{" "}
+      <a href={`/api/calendar/${next.notice.id}?version=${next.version.versionNumber}`} download className="link-draw text-cover-ink/80 hover:text-cover-ink">
+        Add to calendar
+      </a>
     </p>
   );
 }
 
-const FOOT_LINK = "tap text-cover-ink/80 transition-colors hover:text-cover-ink";
+const FOOT_LINK = "tap link-draw text-cover-ink/80 transition-colors hover:text-cover-ink";
 
 /** The colophon: the promise, every way back in, where your work is, and the name, large. */
 export function Footer() {
@@ -352,8 +366,9 @@ export function Footer() {
   const all = useAllIntelligence();
 
   return (
-    <footer className="-ml-[var(--rail-w)] overflow-hidden bg-cover pl-[var(--rail-w)] text-cover-ink transition-colors duration-700 print:hidden">
-      <div className="mx-auto max-w-[1240px] px-4 pt-12 sm:px-8 sm:pt-24 lg:px-10">
+    <footer className="-ml-[var(--rail-w)] flex min-h-dvh flex-col overflow-hidden bg-cover pl-[var(--rail-w)] text-cover-ink transition-colors duration-700 print:hidden">
+      {/* Fills the screen at the end of the page: the floating bar sits over the footer itself, never over the band above. */}
+      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-4 pb-3 pt-[calc(var(--bar-h)+20px)] sm:px-8 sm:pb-7 sm:pt-[calc(var(--bar-h)+80px)] lg:px-10">
         <div className="grid grid-cols-1 gap-x-16 gap-y-7 sm:gap-y-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
           <div>
             <p className="display max-w-[16ch] text-[30px] sm:text-[52px]">Be ready. Not just informed.</p>
@@ -368,8 +383,8 @@ export function Footer() {
               <ul className="mt-2.5 space-y-1.5 sm:mt-3 sm:space-y-2.5">
                 {all.map(({ notice, readinessSummary: s }) => (
                   <li key={notice.id}>
-                    <Link href={`/notice/${notice.id}`} onClick={() => setActiveNotice(notice.id)} className={cn(FOOT_LINK, "flex items-baseline justify-between gap-3")}>
-                      <span>{shortTitle(notice)}</span>
+                    <Link href={`/notice/${notice.id}`} onClick={() => setActiveNotice(notice.id)} className="tap group flex items-baseline justify-between gap-3 text-cover-ink/80 transition-colors hover:text-cover-ink">
+                      <span className="link-draw">{shortTitle(notice)}</span>
                       <span className="num flex-none text-[14px] text-cover-ink/55">{hydrated ? `${s.percentage}%` : ""}</span>
                     </Link>
                   </li>
@@ -420,9 +435,10 @@ export function Footer() {
             </div>
           </nav>
         </div>
+        <div aria-hidden className="h-4 flex-none sm:h-16" />
 
-        <div className="mt-7 grid grid-cols-1 gap-x-16 gap-y-3 border-t sm:mt-16 border-current/15 pt-6 text-[14.5px] leading-relaxed text-cover-ink/65 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
-          <SyncStatus />
+        <div className="mt-auto grid grid-cols-1 gap-x-16 gap-y-2.5 border-t border-current/15 pt-5 text-[13.5px] sm:gap-y-3 sm:pt-6 sm:text-[14.5px] leading-relaxed text-cover-ink/65 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
+          <NextClosing />
           <p>
             The dossiers, offices and lead times are sample cases modelled on published notices. NIYOM is not affiliated with any
             institution named; always confirm with the issuing office before you submit.
@@ -430,7 +446,7 @@ export function Footer() {
         </div>
 
         {/* The name, set large and cut by the bottom edge, so the whole footer fits on one screen. */}
-        <div aria-hidden className="mt-7 h-[clamp(46px,12vw,164px)] select-none overflow-hidden sm:mt-16">
+        <div aria-hidden className="mt-5 h-[clamp(46px,12vw,164px)] flex-none select-none overflow-hidden sm:mt-12">
           <p className="flex items-start justify-between gap-4 leading-none">
             <span className="text-[clamp(56px,14.6vw,200px)] font-semibold tracking-[0.06em]">NIYOM</span>
             <span className="font-bengali mt-[0.12em] text-[clamp(26px,6vw,84px)] leading-none text-cover-ink/55">নিয়ম</span>

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, ViewTransition, type CSSProperties } from "react";
-import type { Notice } from "@/domain/types";
+import type { Notice, NoticeVersion } from "@/domain/types";
 import { compareNoticeVersions } from "@/domain/comparison/compare";
-import { isConsequential, versionTag } from "@/lib/format";
+import { isConsequential, versionPhrase, versionTag } from "@/lib/format";
 import { CHAPTER_COLORS, chapterOf, kindOf, type ObjectKind } from "@/lib/chapters";
 import { useDossierIntelligence } from "@/hooks/useDossierIntelligence";
 import { formatDate, plural } from "@/lib/format";
@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
 /*
  * Opening like a book. The top sheet is a cover hinged on its spine: portrait objects (circular,
  * passport) open sideways, landscape ones (ticket, code window) flip up like a pad. Behind the
- * cover lies a page with your checklist for that version; the cover's back becomes the facing page.
+ * cover lies a page with your checklist for that version. Three printed pages riffle over after the cover;
+ * the last lands on top as the facing page, with the version on it.
  * The whole spread slides and scales so it stays centred in the object's box.
  */
 function bookGeometry(kind: ObjectKind) {
@@ -33,6 +34,18 @@ function bookGeometry(kind: ObjectKind) {
 
 const PAPER = "#fcfbf8";
 const LEAVES = [0, 1, 2];
+const edges = (dx: number, dy: number) =>
+  [1, 2, 3, 4, 5].map((n) => `${dx * n}px ${dy * n}px 0 ${n % 2 ? "#e6e0d3" : "#f8f6f0"}`).join(", ");
+/** The shade where a page bends into the spine. */
+function Gutter({ side }: { side: "left" | "right" | "top" | "bottom" }) {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute inset-0 rounded-[4px]"
+      style={{ background: `linear-gradient(to ${side}, rgba(28,27,25,0.13), rgba(28,27,25,0.03) 7%, rgba(28,27,25,0) 12%)` }}
+    />
+  );
+}
 const INK = "#1c1b19";
 const MUTED = "#6b655b";
 
@@ -47,7 +60,7 @@ function InsidePage({ notice, index, consequential, colors, wide }: { notice: No
         {notice.departmentOrTrust}
       </p>
       <p className="display mt-[3cqw] leading-none" style={{ fontSize: `${11 * k}cqw` }}>
-        {versionTag(v.versionLabel)}
+        {versionTag(v)}
       </p>
       <p className="mt-[2cqw] font-semibold">{v.versionLabel.split(" ").slice(1).join(" ")}</p>
       <p className="mt-[1cqw] italic" style={{ color: MUTED }}>
@@ -81,7 +94,7 @@ function DetailsPage({ notice, colors, wide, passport = false }: { notice: Notic
       }}
     >
       <p className="italic" style={{ color: MUTED }}>
-        What {versionTag(intel.activeVersion.versionLabel)} asks of you
+        What {versionPhrase(intel.activeVersion)} asks of you
       </p>
       <ul className="mt-[3.5cqw] space-y-[2.4cqw]">
         {shown.map((i) => {
@@ -108,6 +121,36 @@ function DetailsPage({ notice, colors, wide, passport = false }: { notice: Notic
         <span className="font-semibold" style={{ color: colors.cover }}>
           {intel.readinessSummary.percentage}%
         </span>
+      </p>
+    </div>
+  );
+}
+
+/** A page of the notice itself: its clauses in the office's own words, so no page that turns is blank. */
+function TextPage({ notice, version, page, wide }: { notice: Notice; version: NoticeVersion; page: number; wide: boolean }) {
+  const k = wide ? 0.66 : 1;
+  const per = wide ? 1 : 2;
+  const reqs = version.requirements;
+  const items = reqs.length ? Array.from({ length: per }, (_, j) => (page * per + j) % reqs.length) : [];
+  return (
+    <div className="flex h-full flex-col rounded-[4px] p-[7cqw]" style={{ background: PAPER, color: INK, fontSize: `${4.1 * k}cqw` }}>
+      <p className="truncate italic" style={{ color: MUTED }}>
+        {notice.departmentOrTrust}
+      </p>
+      <div className="mt-[3.5cqw] space-y-[3.5cqw]">
+        {items.map((n) => (
+          <div key={n}>
+            <p className="font-semibold leading-tight">
+              {n + 1}. {reqs[n].title}
+            </p>
+            <p className={cn("mt-[1.2cqw] leading-snug", wide ? "line-clamp-2" : "line-clamp-4")} style={{ color: "#3d3a35" }}>
+              {reqs[n].evidence.excerpt}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-auto text-center" style={{ color: MUTED }}>
+        {page + 2}
       </p>
     </div>
   );
@@ -311,7 +354,7 @@ export function NoticeObject({
   const layout = LAYOUT[kind];
   const Face = FACES[kind];
   const colors = CHAPTER_COLORS[chapterOf(notice.id)];
-  const activeLabel = versionTag(notice.versions[activeIdx].versionLabel);
+  const activeLabel = versionTag(notice.versions[activeIdx]);
   const book = open ? bookGeometry(kind) : null;
 
   const object = (
@@ -332,7 +375,9 @@ export function NoticeObject({
           ref={scrollStage}
           className="absolute inset-0 [transform-style:preserve-3d] will-change-transform"
           style={{
-            transform: "translate3d(0, var(--sty, 0px), 0) rotateY(var(--sry, 0deg))",
+            transform: book
+              ? "translate3d(0, calc(var(--sty, 0px) * (1 - 0.5 * var(--open))), 0) rotateY(calc(var(--sry, 0deg) * (1 - 0.85 * var(--open))))"
+              : "translate3d(0, var(--sty, 0px), 0) rotateY(var(--sry, 0deg))",
           }}
         >
           <div
@@ -349,9 +394,9 @@ export function NoticeObject({
             ref={stage}
             className="absolute inset-0 transition-transform duration-[900ms] ease-spring [--fan:1] [transform-style:preserve-3d] group-hover/obj:[--fan:1.55] motion-reduce:transition-none"
             style={{
-              // An open book is turned more towards the reader.
+              // An open book faces the reader square-on, lying back a little as on a desk; the pointer only nudges it.
               transform: book
-                ? "rotateX(calc(var(--rx, 9deg) * (1 - var(--open) * 0.45))) rotateY(calc(var(--ry, -20deg) * (1 - var(--open) * 0.6))) rotateZ(calc(1.5deg * (1 - var(--open))))"
+                ? "rotateX(calc(var(--rx, 9deg) * (1 - var(--open)) + var(--open) * (7deg + (var(--rx, 9deg) - 9deg) * 0.3))) rotateY(calc(var(--ry, -20deg) * (1 - var(--open)) + var(--open) * (var(--ry, -20deg) + 20deg) * 0.3)) rotateZ(calc(1.5deg * (1 - var(--open))))"
                 : "rotateX(var(--rx, 9deg)) rotateY(var(--ry, -20deg)) rotateZ(1.5deg)",
             }}
           >
@@ -370,12 +415,31 @@ export function NoticeObject({
                     aspectRatio: layout.item,
                     transform: `translate3d(calc(${rank} * ${layout.dx}% * var(--fan)), calc(${rank} * ${layout.dy}% * var(--fan)), ${rank * -46}px) rotateZ(calc(${rank} * -2deg * var(--fan)))`,
                     filter: rank > 0 ? `brightness(${1 - rank * 0.06})` : undefined,
+                    opacity: book && rank > 0 ? "calc(1 - var(--open))" : undefined,
                     zIndex: 10 - rank,
                   }}
                 >
+                  {/* The open book rests on the band: a soft shadow under the whole spread. */}
                   {book && rank === 0 && (
-                    <div className="absolute inset-0 rounded-[4px]" style={{ transform: "translateZ(-2px)", boxShadow: "0 18px 22px rgba(28,27,25,0.18)" }}>
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute rounded-[10px]"
+                      style={{
+                        ...(book.sideways ? { left: "-98%", right: "2%", top: "5%", bottom: "-3%" } : { left: "3%", right: "3%", top: "-96%", bottom: "-4%" }),
+                        transform: "translateZ(-4px)",
+                        background: "rgba(16,14,10,0.55)",
+                        filter: "blur(26px)",
+                        opacity: "calc(var(--open) * 0.75)",
+                      }}
+                    />
+                  )}
+                  {book && rank === 0 && (
+                    <div
+                      className="absolute inset-0 rounded-[4px]"
+                      style={{ transform: "translateZ(-2px)", boxShadow: `${book.sideways ? edges(1, 0.6) : edges(0.6, 1)}, 0 18px 22px rgba(28,27,25,0.18)` }}
+                    >
                       <DetailsPage notice={notice} colors={colors} wide={!book.sideways} passport={kind === "passport"} />
+                      <Gutter side={book.sideways ? "right" : "bottom"} />
                     </div>
                   )}
                   {/* Pages riffle over after the cover, one after another; the last carries the version. */}
@@ -387,13 +451,26 @@ export function NoticeObject({
                         className={cn("book-leaf absolute inset-0 [transform-style:preserve-3d]", book.sideways ? "book-leaf-y" : "book-leaf-x")}
                         style={{ transformOrigin: book.sideways ? "left center" : "center top", "--k": k, "--z": `${-0.4 - k * 0.4}px` } as CSSProperties}
                       >
-                        <div className="absolute inset-0 rounded-[4px] [backface-visibility:hidden]" style={{ background: PAPER, boxShadow: "0 1px 2px rgba(28,27,25,0.14)" }} />
+                        <div className="absolute inset-0 overflow-hidden rounded-[4px] [backface-visibility:hidden]" style={{ background: PAPER, boxShadow: "0 1px 2px rgba(28,27,25,0.14)" }}>
+                          <TextPage notice={notice} version={v} page={k * 2} wide={!book.sideways} />
+                        </div>
                         <div
-                          className="absolute inset-0 overflow-hidden rounded-[4px] [backface-visibility:hidden]"
-                          style={{ transform: book.sideways ? "rotateY(180deg)" : "rotateX(180deg)", background: PAPER }}
+                          className="absolute inset-0 rounded-[4px] [backface-visibility:hidden]"
+                          style={{
+                            transform: book.sideways ? "rotateY(180deg)" : "rotateX(180deg)",
+                            background: PAPER,
+                            boxShadow: k === LEAVES.length - 1 ? (book.sideways ? edges(-1, 0.6) : edges(0.6, -1)) : undefined,
+                          }}
                         >
-                          {k === LEAVES.length - 1 && (
-                            <InsidePage notice={notice} index={i} consequential={changed[i].consequential} colors={colors} wide={!book.sideways} />
+                          {k === LEAVES.length - 1 ? (
+                            <>
+                              <InsidePage notice={notice} index={i} consequential={changed[i].consequential} colors={colors} wide={!book.sideways} />
+                              <Gutter side={book.sideways ? "left" : "top"} />
+                            </>
+                          ) : (
+                            <div className="h-full overflow-hidden rounded-[4px]">
+                              <TextPage notice={notice} version={v} page={k * 2 + 1} wide={!book.sideways} />
+                            </div>
                           )}
                         </div>
                       </div>
@@ -404,7 +481,7 @@ export function NoticeObject({
                       book && rank === 0
                         ? {
                             transformOrigin: book.sideways ? "left center" : "center top",
-                            transform: book.sideways ? "rotateY(calc(var(--open) * -168deg))" : "rotateX(calc(var(--open) * 168deg))",
+                            transform: book.sideways ? "rotateY(calc(var(--open) * -178deg))" : "rotateX(calc(var(--open) * 178deg))",
                           }
                         : undefined
                     }

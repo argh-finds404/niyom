@@ -51,7 +51,7 @@ export function Redline({
 }) {
   const tokens = wordDiff(before, after);
   return (
-    <dl className={cn("grid grid-cols-1 gap-x-4 gap-y-1.5 text-[16px] leading-relaxed sm:grid-cols-[64px_minmax(0,1fr)]", className)}>
+    <dl className={cn("grid grid-cols-1 gap-x-4 gap-y-1.5 text-[16px] leading-relaxed sm:grid-cols-[84px_minmax(0,1fr)]", className)}>
       <dt className="code pt-0.5 text-[14px] text-ink-3">{fromTag}</dt>
       <dd className="min-w-0 break-words">
         <RedlineText tokens={tokens} side="before" className="text-ink-3" />

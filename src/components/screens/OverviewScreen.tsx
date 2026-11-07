@@ -8,7 +8,7 @@ import { useUiStore } from "@/hooks/useUiStore";
 import { useAllIntelligence, useDossierIntelligence, type DossierIntelligence } from "@/hooks/useDossierIntelligence";
 import { HERO_NOTICE_ID, useScenarios } from "@/hooks/useScenarios";
 import { chapterOf } from "@/lib/chapters";
-import { CATEGORY_LABEL, formatDate, isConsequential, isCosmetic, plural, shortTitle, versionTag } from "@/lib/format";
+import { CATEGORY_LABEL, formatDate, isConsequential, isCosmetic, plural, shortTitle, versionPhrase, versionTag } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Bleed, Container, Page } from "@/components/ui/Page";
 import { NoticeObject } from "@/components/ui/NoticeObject";
@@ -28,7 +28,7 @@ function StatusCard({ intel }: { intel: DossierIntelligence }) {
   const stage = useNiyomStore((s) => s.demoScenarioStage);
   const scenarios = useScenarios();
   const { notice, activeVersion, readinessSummary: s } = intel;
-  const tag = versionTag(activeVersion.versionLabel);
+  const tag = versionPhrase(activeVersion);
   const canSimulate = notice.id === HERO_NOTICE_ID && stage !== "v2_updated" && notice.activeVersionNumber < 3;
 
   return (
@@ -106,7 +106,7 @@ function Hero({ intel }: { intel: DossierIntelligence }) {
         <figure className="order-2 min-w-0 lg:order-1">
           <NoticeObject notice={intel.notice} float className="max-w-[540px]" />
           <figcaption className="mt-3 text-center text-[15px] italic text-ink-3">
-            {shortTitle(intel.notice)} as published: {intel.notice.versions.map((v) => versionTag(v.versionLabel)).join(", ")}
+            {shortTitle(intel.notice)} as published: {intel.notice.versions.map((v) => versionTag(v)).join(", ")}
           </figcaption>
         </figure>
         <div className="order-1 min-w-0 lg:order-2">
@@ -123,13 +123,65 @@ function Hero({ intel }: { intel: DossierIntelligence }) {
 
 /* ───────────── Your next steps ───────────── */
 
+/** The applicant's folder at a glance: every required paper, and where each one stands. */
+function Folder({ intel }: { intel: DossierIntelligence }) {
+  const { notice, readinessSummary: s } = intel;
+  const papers = s.items.filter((i) => i.requirement.mandatory && i.applicability === "APPLIES");
+  const done = papers.filter((i) => i.readinessStatus === "completed").length;
+  return (
+    <div className="mt-10 max-w-[440px]">
+      <div className="relative">
+        {/* A manila folder: the tab, then the pocket the papers sit in. */}
+        <span aria-hidden className="absolute -top-[13px] left-6 h-[14px] w-32 rounded-t-[9px] bg-[#d8c294]" />
+        <div className="rounded-[14px] bg-[#e0cc9f] p-1.5 shadow-[0_26px_50px_-30px_rgba(28,27,25,0.55)]">
+          <div className="rounded-[10px] bg-[#fcfbf8] px-5 pb-4 pt-4 text-[#1c1b19] shadow-[0_1px_0_rgba(28,27,25,0.06)]">
+            <p className="flex items-baseline justify-between gap-3 text-[14.5px] italic text-[#6b655b]">
+              <span>Your folder</span>
+              <span className="num not-italic">
+                {done} of {papers.length} ready
+              </span>
+            </p>
+            <ul className="mt-3 space-y-2">
+              {papers.map((i) => {
+                const st = i.readinessStatus;
+                return (
+                  <li key={i.requirement.id} className="flex items-baseline gap-3 text-[16px] leading-snug">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "w-4 flex-none text-center font-semibold",
+                        st === "completed" ? "text-[#2d6a47]" : st === "needs_reverification" ? "text-[#8a5510]" : "text-[#6b655b]"
+                      )}
+                    >
+                      {st === "completed" ? "✓" : st === "needs_reverification" ? "!" : "○"}
+                    </span>
+                    <span className={cn("min-w-0 flex-1", st === "completed" && "text-[#47433c]")}>{i.requirement.title}</span>
+                    <span className="sr-only">
+                      {st === "completed" ? "ready" : st === "needs_reverification" ? "changed under you" : "not prepared yet"}
+                    </span>
+                    {st === "needs_reverification" && <span className="flex-none text-[13.5px] italic text-[#8a5510]">changed</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      </div>
+      <Deadline notice={notice} compact className="mt-6" />
+      <Link href="/my-plan" className={cn(buttonClass("primary"), "mt-6")}>
+        Open my plan
+      </Link>
+    </div>
+  );
+}
+
 function ActionList({ intel }: { intel: DossierIntelligence }) {
   const hydrated = useNiyomStore((s) => s.isHydrated);
   const reverify = useNiyomStore((s) => s.reverifyRequirement);
   const openInspector = useUiStore((s) => s.openInspector);
   const toast = useUiStore((s) => s.toast);
   const { notice, activeVersion, readinessSummary: s } = intel;
-  const tag = versionTag(activeVersion.versionLabel);
+  const tag = versionTag(activeVersion);
   const stale = s.items.filter((i) => i.readinessStatus === "needs_reverification");
   const conflicts = s.items.filter((i) => i.requirement.conflict);
   const pending = s.items.filter((i) => i.requirement.mandatory && i.applicability === "APPLIES" && i.readinessStatus === "pending");
@@ -138,13 +190,14 @@ function ActionList({ intel }: { intel: DossierIntelligence }) {
   return (
     <section data-rail="Your next steps" aria-labelledby="action" className="pt-24">
       <Container className="grid grid-cols-1 gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
-        <div className="min-w-0">
+        <div className="min-w-0 lg:sticky lg:top-[calc(var(--bar-h)+40px)] lg:self-start">
           <h2 id="action" className="display text-[34px] sm:text-[40px]">
             Your next steps
           </h2>
           <p className="mt-3 max-w-[36ch] text-[18px] italic leading-snug text-ink-2">
-            For {shortTitle(notice)}, as it stands in {tag}.
+            For {shortTitle(notice)}, as it stands in {versionPhrase(activeVersion)}.
           </p>
+          {hydrated && <Folder intel={intel} />}
         </div>
         <div className="min-w-0">
           {!hydrated ? (
@@ -153,7 +206,7 @@ function ActionList({ intel }: { intel: DossierIntelligence }) {
               <Skel className="h-20 w-full" />
             </div>
           ) : clear ? (
-            <p className="text-[22px] italic leading-snug">Nothing to do. Every required item that applies to you matches {tag}.</p>
+            <p className="text-[22px] italic leading-snug">Nothing to do. Every required item that applies to you matches {versionPhrase(activeVersion)}.</p>
           ) : (
             <ol className="divide-y divide-ink/10">
               {stale.map((i) => (
@@ -163,7 +216,7 @@ function ActionList({ intel }: { intel: DossierIntelligence }) {
                   <Redline className="mt-3" before={i.previouslyVerifiedValue ?? ""} after={i.requirement.value} fromTag="yours" toTag={tag} />
                   {i.evidenceNote && (
                     <p className="mt-2 text-[14.5px] text-ink-2">
-                      Your v1.0 folder memo: <span className="font-medium text-ink">&ldquo;{i.evidenceNote}&rdquo;</span>
+                      Your folder memo from {versionPhrase(intel.baselineVersion)}: <span className="font-medium text-ink">&ldquo;{i.evidenceNote}&rdquo;</span>
                     </p>
                   )}
                   <Button
@@ -172,7 +225,7 @@ function ActionList({ intel }: { intel: DossierIntelligence }) {
                     className="mt-4"
                     onClick={() => {
                       withViewTransition(() => reverify(notice.id, i.requirement, activeVersion.versionNumber));
-                      toast({ tone: "ok", title: `${i.requirement.title} re-verified`, body: `Your check now holds against ${tag}.` });
+                      toast({ tone: "ok", title: `${i.requirement.title} re-verified`, body: `Your check now holds against ${versionPhrase(activeVersion)}.` });
                     }}
                   >
                     I have the updated document
@@ -290,7 +343,7 @@ function NoiseFilter() {
   if (!intel) return null;
 
   return (
-    <section data-rail="Not every change is news" aria-labelledby="noise" className="pt-32">
+    <section data-rail="Which changes matter" aria-labelledby="noise" className="pt-32">
       <Container>
         <div className="grid grid-cols-1 gap-x-16 gap-y-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
           <h2 id="noise" className="display text-[34px] sm:text-[40px]">
@@ -313,7 +366,7 @@ function NoiseFilter() {
                 )}
               >
                 <p className="flex items-baseline justify-between gap-4">
-                  <span className="display num text-[44px] leading-none">{versionTag(v.versionLabel)}</span>
+                  <span className="display num text-[44px] leading-none">{versionTag(v)}</span>
                   {active && <span className="text-[15px] italic text-ink-2">Your checklist follows this</span>}
                 </p>
                 <p className="num mt-2 text-[15.5px] italic text-ink-3">{formatDate(v.publishedAt)}</p>
@@ -379,8 +432,8 @@ function Chapters() {
           >
             {/* The version this chapter is on, engraved behind it. */}
             <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-              <span className="drift-view absolute -right-[0.06em] top-[8%] select-none text-[clamp(140px,26vw,400px)] font-semibold italic leading-none tracking-[-0.04em] text-transparent [-webkit-text-stroke:1.25px_color-mix(in_srgb,var(--ink)_16%,transparent)]">
-                {versionTag(activeVersion.versionLabel)}
+              <span className="drift-view absolute right-[5%] top-[7%] select-none whitespace-nowrap text-[clamp(72px,13vw,200px)] font-semibold italic leading-none tracking-[-0.04em] text-transparent [-webkit-text-stroke:1.25px_color-mix(in_srgb,var(--ink)_16%,transparent)]">
+                {versionTag(activeVersion)}
               </span>
             </div>
             <Container className="relative grid grid-cols-1 items-center gap-x-16 gap-y-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,500px)]">
@@ -410,7 +463,7 @@ function Chapters() {
                     href={`/notice/${notice.id}`}
                     onClick={() => setActiveNotice(notice.id)}
                     label="Read the requirements"
-                    meta={versionTag(activeVersion.versionLabel)}
+                    meta={versionTag(activeVersion)}
                   />
                   {changes > 0 && (
                     <ActionRowLink

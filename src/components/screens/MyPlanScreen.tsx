@@ -8,7 +8,7 @@ import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
 import { useAllIntelligence, useDossierIntelligence, useSharedFolderGroups, versionOf } from "@/hooks/useDossierIntelligence";
 import { chapterOf } from "@/lib/chapters";
-import { formatDate, plural, profileLine, shortTitle, versionTag } from "@/lib/format";
+import { formatDate, plural, profileLine, shortTitle, versionPhrase, versionTag } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Page } from "@/components/ui/Page";
 import { CoverTile } from "@/components/ui/CoverTile";
@@ -371,7 +371,7 @@ function ReadinessSlip({ printedAt }: { printedAt: string }) {
       </div>
       <p className="mt-3 font-semibold">{notice.title}</p>
       <p>
-        {notice.institution} · {activeVersion.versionLabel} · published {formatDate(activeVersion.publishedAt)}
+        {notice.institution} · {versionTag(activeVersion)}, {activeVersion.versionLabel.split(" ").slice(1).join(" ")} · published {formatDate(activeVersion.publishedAt)}
       </p>
       <p className="mt-1">Applicant: {profileLine(profile).join(" · ")}</p>
       <p className="mt-1">
@@ -415,7 +415,7 @@ function ReadinessSlip({ printedAt }: { printedAt: string }) {
                 </td>
                 <td className="py-1.5 pr-2">{status(i)}</td>
                 <td className="py-1.5 pr-2">{i.evidenceNote ?? "—"}</td>
-                <td className="py-1.5 pr-2">{rec ? versionTag(versionOf(notice, rec.verifiedAgainstVersion).versionLabel) : "—"}</td>
+                <td className="py-1.5 pr-2">{rec ? versionTag(versionOf(notice, rec.verifiedAgainstVersion)) : "—"}</td>
                 <td className="py-1.5">{i.requirement.evidence.sectionOrPage}</td>
               </tr>
             );
@@ -542,8 +542,8 @@ export function MyPlanScreen() {
 
   if (!intel) return null;
   const { notice, activeVersion, baselineVersion, readinessSummary: s, timeline } = intel;
-  const tag = versionTag(activeVersion.versionLabel);
-  const baselineTag = versionTag(baselineVersion.versionLabel);
+  const tag = versionPhrase(activeVersion);
+  const baselineTag = versionTag(baselineVersion);
 
   const stale = s.items.filter((i) => i.readinessStatus === "needs_reverification");
   const required = s.items.filter((i) => i.requirement.mandatory && i.applicability === "APPLIES" && i.readinessStatus !== "needs_reverification");
@@ -582,7 +582,7 @@ export function MyPlanScreen() {
   );
 
   return (
-    <Page chapter={chapterOf(notice.id)}>
+    <Page chapter={chapterOf(notice.id)} engrave="প্রস্তুতি" bengali>
       <div className="print:hidden">
         <header data-rail="Your dossiers" className="flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-[720px]">
@@ -646,7 +646,7 @@ export function MyPlanScreen() {
                   noticeId={d.notice.id}
                   category={d.notice.category}
                   title={shortTitle(d.notice)}
-                  top={versionTag(d.activeVersion.versionLabel)}
+                  top={versionTag(d.activeVersion)}
                   bottom={
                     hydrated
                       ? `${d.readinessSummary.percentage}% ready${d.readinessSummary.staleReverificationCount ? ` · ${d.readinessSummary.staleReverificationCount} stale` : ""}`
