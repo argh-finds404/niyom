@@ -13,6 +13,7 @@ import {
   persistReadinessRecord,
 } from "../data/persistence/db";
 import { mergeRecords } from "../lib/records";
+import { checksForOriginal } from "../domain/readiness/calculate";
 
 type Stage = "v1_ready" | "v2_updated" | "custom";
 
@@ -58,8 +59,10 @@ export interface NiyomStoreState {
   /** Keeps the report on this device; uploads it unless `upload` is false (the caller already tried). */
   submitCommunityReport: (report: SubmittedReportPayload | ServerReport, options?: { upload?: boolean }) => void;
   corroborateReport: (reportId: string) => Promise<CorroborateOutcome>;
-  loadScenarioV1Ready: () => void;
-  simulateV2UpdateArrival: () => void;
+  /** Walkthrough: every required paper of the dossier checked against its original notice, which is followed again. */
+  prepareForOriginal: (noticeId?: string) => void;
+  /** Walkthrough: a prepared applicant receives a later version (default: the latest); their checks are kept as they were. */
+  receiveUpdate: (noticeId?: string, versionNumber?: number) => void;
   resetDemoData: () => void;
 }
 
@@ -506,80 +509,64 @@ export const useNiyomStore = create<NiyomStoreState>((set, get) => {
       }
     },
 
-    loadScenarioV1Ready: () => {
+    prepareForOriginal: (noticeId = HERO) => {
       const state = get();
-      const notice = state.notices.find((n) => n.id === HERO) ?? SEED_NOTICES[0];
-      const v1 = notice.versions.find((v) => v.versionNumber === 1) ?? notice.versions[0];
-      const mine = new Map(state.readinessRecords.filter((r) => r.noticeId === HERO).map((r) => [r.requirementId, r]));
+      const notice = state.notices.find((n) => n.id === noticeId);
+      if (!notice) return;
+      const original = notice.versions[0].versionNumber;
+      const mine = new Map(state.readinessRecords.filter((r) => r.noticeId === noticeId).map((r) => [r.requirementId, r]));
       const at = now();
-      const checked: ReadinessRecord[] = v1.requirements
-        .filter((r) => r.mandatory)
-        .map((r) => {
-          const note = mine.get(r.id)?.note ?? SEED_V1_NOTES[r.id];
-          return {
-            noticeId: notice.id,
-            requirementId: r.id,
-            checked: true,
-            verifiedAgainstValue: r.value,
-            verifiedAgainstVersion: 1,
-            ...(note ? { note } : {}),
-            updatedAt: at,
-          };
-        });
-      // Other Merit Grant checks are cleared explicitly so the server forgets them too.
+      const checked = checksForOriginal(notice, at).map((r) => {
+        const note = mine.get(r.requirementId)?.note ?? SEED_V1_NOTES[r.requirementId];
+        return note ? { ...r, note } : r;
+      });
+      // Other checks on this dossier are cleared explicitly so the server forgets them too.
       const ids = new Set(checked.map((r) => r.requirementId));
       const cleared = state.readinessRecords
-        .filter((r) => r.noticeId === HERO && !ids.has(r.requirementId) && r.checked)
+        .filter((r) => r.noticeId === noticeId && !ids.has(r.requirementId) && r.checked)
         .map((r) => ({ ...r, checked: false, updatedAt: at }));
       const changes = [...checked, ...cleared];
       const records = mergeRecords(state.readinessRecords, changes);
+      const stage: Stage = noticeId === HERO ? "v1_ready" : "custom";
 
       set({
-        notices: state.notices.map((n) => (n.id === HERO ? { ...n, activeVersionNumber: 1 } : n)),
+        notices: state.notices.map((n) => (n.id === noticeId ? { ...n, activeVersionNumber: original } : n)),
         readinessRecords: records,
-        demoScenarioStage: "v1_ready",
+        demoScenarioStage: stage,
       });
-      localVersions = { ...localVersions, [HERO]: 1 };
+      localVersions = { ...localVersions, [noticeId]: original };
       void persistAllReadinessRecords(records);
-      void persistActiveVersion(HERO, 1);
-      push({ readinessRecords: changes, activeVersions: { [HERO]: 1 }, demoScenarioStage: "v1_ready" });
+      void persistActiveVersion(noticeId, original);
+      push({ readinessRecords: changes, activeVersions: { [noticeId]: original }, demoScenarioStage: stage });
     },
 
-    simulateV2UpdateArrival: () => {
+    receiveUpdate: (noticeId = HERO, versionNumber) => {
       const state = get();
-      const notice = state.notices.find((n) => n.id === HERO) ?? SEED_NOTICES[0];
-      const v1 = notice.versions.find((v) => v.versionNumber === 1) ?? notice.versions[0];
-      const mine = new Map(state.readinessRecords.filter((r) => r.noticeId === HERO).map((r) => [r.requirementId, r]));
+      const notice = state.notices.find((n) => n.id === noticeId);
+      if (!notice) return;
+      const latest = notice.versions[notice.versions.length - 1].versionNumber;
+      const target = notice.versions.some((v) => v.versionNumber === versionNumber) ? versionNumber! : latest;
+      const mine = new Map(state.readinessRecords.filter((r) => r.noticeId === noticeId).map((r) => [r.requirementId, r]));
       const at = now();
-      // You had prepared every v1.0 item; keep what you already checked, fill in the rest against v1.0.
-      const baseline: ReadinessRecord[] = v1.requirements
-        .filter((r) => r.mandatory)
-        .map((r) => {
-          const existing = mine.get(r.id);
-          const note = existing?.note ?? SEED_V1_NOTES[r.id];
-          return existing?.checked
-            ? { ...existing, ...(note ? { note } : {}) }
-            : {
-                noticeId: notice.id,
-                requirementId: r.id,
-                checked: true,
-                verifiedAgainstValue: r.value,
-                verifiedAgainstVersion: 1,
-                ...(note ? { note } : {}),
-                updatedAt: at,
-              };
-        });
+      // You had prepared every paper of the original; keep what you already checked, fill in the rest.
+      const baseline = checksForOriginal(notice, at).map((r) => {
+        const existing = mine.get(r.requirementId);
+        const note = existing?.note ?? SEED_V1_NOTES[r.requirementId];
+        const record = existing?.checked ? existing : r;
+        return note ? { ...record, note } : record;
+      });
       const records = mergeRecords(state.readinessRecords, baseline);
+      const stage: Stage = noticeId === HERO && target === latest ? "v2_updated" : "custom";
 
       set({
-        notices: state.notices.map((n) => (n.id === HERO ? { ...n, activeVersionNumber: 3 } : n)),
+        notices: state.notices.map((n) => (n.id === noticeId ? { ...n, activeVersionNumber: target } : n)),
         readinessRecords: records,
-        demoScenarioStage: "v2_updated",
+        demoScenarioStage: stage,
       });
-      localVersions = { ...localVersions, [HERO]: 3 };
+      localVersions = { ...localVersions, [noticeId]: target };
       void persistAllReadinessRecords(records);
-      void persistActiveVersion(HERO, 3);
-      push({ readinessRecords: baseline, activeVersions: { [HERO]: 3 }, demoScenarioStage: "v2_updated" });
+      void persistActiveVersion(noticeId, target);
+      push({ readinessRecords: baseline, activeVersions: { [noticeId]: target }, demoScenarioStage: stage });
     },
 
     resetDemoData: () => {

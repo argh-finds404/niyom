@@ -4,6 +4,8 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  // The embedded Postgres loads its WebAssembly and data files from node_modules at run time.
+  serverExternalPackages: ["@electric-sql/pglite", "@electric-sql/pglite-socket"],
   async headers() {
     return [
       {

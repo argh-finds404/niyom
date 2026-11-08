@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { calculateNoticeReadiness } from "@/domain/readiness/calculate";
+import { shortTitle, versionTag } from "@/lib/format";
 import { useNiyomStore } from "./useNiyomStore";
 import { useUiStore } from "./useUiStore";
 import { useWatchStore } from "./useWatchStore";
@@ -16,32 +17,47 @@ export function useScenarios() {
   const ui = useUiStore;
 
   return {
-    baseline() {
-      store.getState().setActiveNotice(HERO_NOTICE_ID);
-      store.getState().loadScenarioV1Ready();
-      // You prepared against v1.0 and reviewed it, so only a newer version will alert you.
-      useWatchStore.getState().markSeen(HERO_NOTICE_ID, 1);
+    /** Every required paper of a dossier checked against its original notice. */
+    baseline(noticeId: string = HERO_NOTICE_ID) {
+      const notice = store.getState().notices.find((n) => n.id === noticeId);
+      if (!notice) return;
+      store.getState().setActiveNotice(noticeId);
+      store.getState().prepareForOriginal(noticeId);
+      // You prepared against the original and reviewed it, so only a newer version will alert you.
+      useWatchStore.getState().markSeen(noticeId, notice.versions[0].versionNumber);
       ui.getState().toast({
         tone: "ok",
-        title: "You're prepared for v1.0",
-        body: "Every required Merit Grant item is checked against the original circular.",
+        title: "You're prepared for the original",
+        body: `Every required ${shortTitle(notice)} paper is checked against the original notice.`,
       });
     },
-    simulateCorrigendum() {
-      store.getState().setActiveNotice(HERO_NOTICE_ID);
-      // A corrigendum arriving is only news if you had reviewed an earlier version.
-      const seen = useWatchStore.getState().lastSeen[HERO_NOTICE_ID];
-      if (seen === undefined || seen >= 3) useWatchStore.getState().markSeen(HERO_NOTICE_ID, 1);
-      store.getState().simulateV2UpdateArrival();
+    /** A prepared applicant receives an update (default: the latest) and sees what it invalidates. */
+    simulateCorrigendum(noticeId: string = HERO_NOTICE_ID, versionNumber?: number) {
+      const notice = store.getState().notices.find((n) => n.id === noticeId);
+      if (!notice) return;
+      const original = notice.versions[0].versionNumber;
+      store.getState().setActiveNotice(noticeId);
+      // An update is only news if you had reviewed an earlier version.
+      const seen = useWatchStore.getState().lastSeen[noticeId];
+      if (seen === undefined || seen > original) useWatchStore.getState().markSeen(noticeId, original);
+      store.getState().receiveUpdate(noticeId, versionNumber);
       const s = store.getState();
-      const notice = s.notices.find((n) => n.id === HERO_NOTICE_ID)!;
-      const stale = calculateNoticeReadiness(notice, s.profile, s.readinessRecords, s.communityReports).staleReverificationCount;
+      const updated = s.notices.find((n) => n.id === noticeId)!;
+      const version = updated.versions.find((v) => v.versionNumber === updated.activeVersionNumber)!;
+      const summary = calculateNoticeReadiness(updated, s.profile, s.readinessRecords, s.communityReports);
+      const stale = summary.staleReverificationCount;
+      // Every paper of the original was prepared, so what is still pending is what the update added.
+      const added = summary.items.filter((i) => i.requirement.mandatory && i.applicability === "APPLIES" && i.readinessStatus === "pending").length;
+      const effects = [
+        stale && (stale === 1 ? "one of your checks needs another look" : `${stale} of your checks need another look`),
+        added && (added === 1 ? "one new paper is now required" : `${added} new papers are now required`),
+      ].filter(Boolean);
       ui.getState().toast({
-        tone: "warn",
-        title: "Merit Grant 2026 was revised",
-        body: stale
-          ? `Version 2.0 changes what you must submit. ${stale === 1 ? "One of your checks needs" : `${stale} of your checks need`} another look.`
-          : "Version 2.0 is out. None of your checks are affected.",
+        tone: effects.length ? "warn" : "neutral",
+        title: `${shortTitle(updated)} was revised`,
+        body: effects.length
+          ? `${versionTag(version)} changes what you must submit: ${effects.join(" and ")}.`
+          : `${versionTag(version)} is out. None of the papers you prepared are affected.`,
       });
     },
     openRailway() {

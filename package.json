@@ -2,6 +2,9 @@
   "name": "niyom",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,6 +15,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.15",
+    "@electric-sql/pglite-socket": "^0.2.18",
     "clsx": "^2.1.1",
     "dexie": "^4.4.7",
     "lucide-react": "^1.67.0",
@@ -24,8 +29,6 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.15",
-    "@electric-sql/pglite-socket": "^0.2.18",
     "@tailwindcss/turbopack": "^4",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",

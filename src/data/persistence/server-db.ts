@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 import { Pool } from "pg";
 import type { CommunityReport, Notice } from "@/domain/types";
@@ -25,11 +26,13 @@ export type { CorroborateResult, DeviceState, LedgerStore, ReportView, ScenarioS
 /*
  * Server ledger: the one entry point the API uses.
  *
- * Where data lives is chosen at start-up:
- * - DATABASE_URL (or POSTGRES_URL) set: Postgres. Durable and safe with many server instances.
- * - Otherwise: one JSON file in NIYOM_DATA_DIR (default `.data/`), written atomically.
- *   On a read-only disk (serverless without a database) it runs in memory and /api/health says so.
- * - Under tests: memory.
+ * Where data lives is chosen at start-up. It is a real Postgres database in every case but one:
+ * - DATABASE_URL (or POSTGRES_URL) set: that Postgres (e.g. Neon). Durable and safe with many server instances.
+ * - Otherwise, on a machine with a disk (`npm run dev`, `npm start`): an embedded Postgres (PGlite) in
+ *   NIYOM_DATA_DIR/pglite (default `.data/pglite`), spoken to through the same `pg` driver and SQL as production.
+ * - Serverless without a database, the production build, or NIYOM_STORE=file: one JSON file in NIYOM_DATA_DIR,
+ *   or memory on a read-only disk (/api/health says so). Also the fallback if the embedded database cannot start.
+ * - Under tests: memory (and a separate suite runs the Postgres store against PGlite).
  */
 
 const IN_TEST = Boolean(process.env.VITEST) || process.env.NODE_ENV === "test";
@@ -237,9 +240,96 @@ export function createFileStore(options: { dir?: string; memoryOnly?: boolean } 
   };
 }
 
+/* ───────────── Embedded Postgres ───────────── */
+
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const s = net.createServer();
+    s.once("error", reject);
+    s.listen(0, "127.0.0.1", () => {
+      const { port } = s.address() as net.AddressInfo;
+      s.close(() => resolve(port));
+    });
+  });
+}
+
+/**
+ * Postgres compiled to WebAssembly (PGlite), kept on this machine's disk and served on a local port,
+ * so the production driver and SQL run unchanged. One instance per process, also across dev reloads.
+ * If it cannot start, the ledger falls back to the JSON file and says so in the log.
+ */
+function createEmbeddedStore(dir: string): LedgerStore {
+  const g = globalThis as typeof globalThis & { __niyomEmbedded?: Promise<LedgerStore> };
+  g.__niyomEmbedded ??= (async () => {
+    try {
+      const { PGlite } = await import("@electric-sql/pglite");
+      const { PGLiteSocketServer } = await import("@electric-sql/pglite-socket");
+      fs.mkdirSync(dir, { recursive: true });
+      // One process per data folder: a second server (say `next dev` beside `next start`) must not open the same files.
+      const lock = path.join(dir, "pglite.lock");
+      try {
+        const owner = Number(fs.readFileSync(lock, "utf8"));
+        if (owner && owner !== process.pid) {
+          process.kill(owner, 0); // throws ESRCH when that process is gone
+          throw new Error(`the database in ${dir} is open in process ${owner}`);
+        }
+      } catch (e) {
+        const code = (e as NodeJS.ErrnoException).code;
+        if (code !== "ENOENT" && code !== "ESRCH") throw e;
+      }
+      fs.writeFileSync(lock, String(process.pid));
+      process.once("exit", () => {
+        try {
+          if (fs.readFileSync(lock, "utf8") === String(process.pid)) fs.unlinkSync(lock);
+        } catch {
+          // already gone
+        }
+      });
+      const db = await PGlite.create(path.join(dir, "pglite"));
+      const port = await freePort();
+      const server = new PGLiteSocketServer({ db, port, host: "127.0.0.1", maxConnections: 8 });
+      await server.start();
+      const pool = new Pool({ host: "127.0.0.1", port, user: "postgres", database: "postgres", max: 4 });
+      pool.on("error", (e) => console.error("[niyom] Embedded Postgres connection error:", e.message));
+      return createPostgresStore(pool);
+    } catch (error) {
+      console.warn("[niyom] The embedded Postgres could not start; using the JSON file store.", (error as Error).message);
+      return createFileStore({ dir });
+    }
+  })();
+  const ready = g.__niyomEmbedded;
+  let resolved: LedgerStore | null = null;
+  // Set here, not inside the start-up promise: after a dev reload this module is new but the database is not.
+  void ready.then((s) => {
+    resolved = s;
+    engine = s.kind === "postgres" ? "postgres (embedded PGlite)" : "json-file (embedded Postgres unavailable)";
+  });
+  const via =
+    <K extends Exclude<keyof LedgerStore, "kind" | "durable">>(k: K) =>
+    (async (...args: unknown[]) => ((await ready)[k] as (...a: unknown[]) => unknown)(...args)) as LedgerStore[K];
+  return {
+    get kind() {
+      return resolved?.kind ?? "postgres";
+    },
+    get durable() {
+      return resolved?.durable ?? true;
+    },
+    getDevice: via("getDevice"),
+    saveDevice: via("saveDevice"),
+    deleteDevice: via("deleteDevice"),
+    listReports: via("listReports"),
+    insertReport: via("insertReport"),
+    confirmReport: via("confirmReport"),
+    stats: via("stats"),
+    reset: via("reset"),
+  };
+}
+
 /* ───────────── Choosing the store ───────────── */
 
 let active: LedgerStore | null = null;
+/** Which database answers, in words, for /api/health. */
+let engine = "";
 
 function store(): LedgerStore {
   if (active) return active;
@@ -255,8 +345,13 @@ function store(): LedgerStore {
     // An idle client dropped by the server must not crash the process.
     pool.on("error", (e) => console.error("[niyom] Postgres connection error:", e.message));
     active = createPostgresStore(pool);
+    engine = "postgres (DATABASE_URL)";
+  } else if (!IN_TEST && !process.env.VERCEL && process.env.NEXT_PHASE !== "phase-production-build" && process.env.NIYOM_STORE !== "file") {
+    active = createEmbeddedStore(process.env.NIYOM_DATA_DIR || path.join(process.cwd(), ".data"));
+    engine ||= "postgres (embedded PGlite, starting)";
   } else {
     active = createFileStore({ memoryOnly: IN_TEST });
+    engine = IN_TEST ? "memory (tests)" : "json-file";
     if (!IN_TEST && process.env.VERCEL) {
       console.warn("[niyom] No DATABASE_URL on a serverless host: data is not shared between instances and is lost on restart.");
     }
@@ -350,7 +445,7 @@ export async function ledgerHealth() {
   const s = store();
   const started = Date.now();
   const stats = await s.stats();
-  return { persistence: s.kind, durable: s.durable, ...stats, latencyMs: Date.now() - started };
+  return { persistence: s.kind, database: engine, durable: s.durable, ...stats, latencyMs: Date.now() - started };
 }
 
 export function ledgerKind() {
