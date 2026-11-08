@@ -1,136 +1,137 @@
 # NIYOM: design decisions
 
-This document explains why NIYOM looks and behaves the way it does. It describes the product as it stands. How it got there, phase by phase, is in [`NIYOM_EXECUTION_LOG.md`](NIYOM_EXECUTION_LOG.md).
+This document explains why NIYOM looks and works the way it does, in plain words. It describes the app as it is today. How it got here, step by step, is in [`NIYOM_EXECUTION_LOG.md`](NIYOM_EXECUTION_LOG.md).
 
-## 1. Principles
+## 1. What guides every decision
 
-**The loop the interface is built around: follow → alert → review → re-verify → ready.**
+**One loop: follow → get alerted → review → check again → ready.**
 
-- **Follow.** Every dossier is followed by default. You can unfollow from a dossier's page.
-- **Alert.** The bell lists each revision of a followed notice that you have not reviewed. Each alert says how many changes matter, how many cosmetic edits were ignored, and how many of your checks went stale. Alerts are derived from the data, never stored separately.
-- **Review.** Opening the redline marks the alert as read.
-- **Re-verify.** A stale item shows the old and new wording with one fix: *I have the updated document*. The item glides into *Required* and readiness counts up.
-- **Be on time.** Deadlines show the days left. **Add to calendar** downloads an `.ics` file from `/api/calendar/:id` with a reminder three days before.
+- **Follow.** You follow every notice by default. You can unfollow one from its page.
+- **Get alerted.** The bell lists each correction to a followed notice that you haven't looked at yet. Each alert says how many changes matter, how many cosmetic edits were ignored, and how many of your ticks are now out of date.
+- **Review.** Opening the comparison marks the alert as read.
+- **Check again.** An out-of-date paper shows the old and new wording side by side, with one button: *I have the updated document*. The paper moves back into place and readiness counts up.
+- **Be on time.** Deadlines show the days left, and **Add to calendar** downloads a calendar file with a reminder three days before.
 
-**Numbers are computed, never typed.** Every figure on screen comes from the domain engine, and the tests pin them. For an applicant who prepared every paper for the original notice:
+**Numbers are calculated, never typed in.** Every figure on screen comes from the engine in `src/domain/`, and tests check them. For a student who prepared every paper for the original notice:
 
-| Dossier | Original | Later versions |
+| Notice | Original | After the latest correction |
 | --- | --- | --- |
-| Merit Grant 2026 | 100% (6 of 6) | Update 1: 100% (a cosmetic edit). Update 2: **57%** (4 of 7: two prepared papers changed, the income certificate became required) |
-| Railway e-ticket refund | 100% (4 of 4) | Update 1: 80% (a new SMS two-factor rule; nothing prepared went stale) |
-| ICT SE Fellowship 2026 | 100% (4 of 4) | Update 1: 60% (the deadline moved, a GitHub portfolio was added) |
-| e-Passport checklist | 100% (3 of 3) | Update 1: 50% (the identity document wording changed, an enrolment certificate was added) |
+| Merit Grant 2026 | 100% (6 of 6) | Update 1: still 100% (only a helpdesk moved). Update 2: **57%** (4 of 7: two papers changed, and the income certificate became required) |
+| Railway e-ticket refund | 100% (4 of 4) | Update 1: 80% (a new SMS code step; nothing prepared went out of date) |
+| ICT SE Fellowship 2026 | 100% (4 of 4) | Update 1: 60% (the deadline moved, and a GitHub profile became required) |
+| e-Passport checklist | 100% (3 of 3) | Update 1: 50% (the ID document wording changed, and an enrolment certificate became required) |
 
-See `tests/domain/prepared.test.ts` and `readinessIfPreparedForOriginal` in `src/domain/readiness/calculate.ts`.
+The test is `tests/domain/prepared.test.ts`; the function is `readinessIfPreparedForOriginal` in `src/domain/readiness/calculate.ts`.
 
-**Plain words for versions.** *v1.0* and *v2.0* mean little to a student at a counter. The interface says *Original*, *Update 1*, *Update 2*, in the order the notice was published (from the version number). Inside a sentence it reads *the original*. The official label, such as "Major Corrigendum", still appears beside the name, and the API keeps the raw labels.
+**Plain names for versions.** "v1.0" and "v2.0" mean little to a student at a counter. The app says *Original*, *Update 1*, *Update 2*, in the order they were published. The official label (such as "Major Corrigendum") is still shown next to it, and the API keeps the official labels.
 
-**Less on screen at once.** Each requirement shows a check, its title, the rule and at most one status. Everything else opens in a slide-over inspector: applicability, history, sources, conflicts and field reports.
+**Less on screen at once.** Each requirement shows a tick, its name, the rule and at most one status. Everything else (does it apply to you, history, sources, conflicts, field reports) opens in a side panel when you ask for it.
 
-**Honest by default.** NIYOM never assumes you are ineligible when a profile field is missing; the item moves to *Needs your profile*. Field reports from counters are kept apart from official policy and marked pending until three devices confirm them. The dataset is labelled as illustrative wherever it appears.
+**Honest by default.** If a profile field is missing, NIYOM never assumes you are not eligible; it asks. Reports from counters are kept apart from official rules and stay *pending* until three different people confirm them. The sample data is labelled as sample data wherever it appears.
 
-## 2. Visual direction: the Stripe Press reading model, softened
+## 2. The look: a calm reading experience
 
-The interface follows the structure and motion of [Stripe Press](https://press.stripe.com), studied in a real browser at desktop and phone width. It uses none of Stripe's fonts, logo or copy.
+The layout and motion take their cue from [Stripe Press](https://press.stripe.com), the way a well-made book site reads: one serif typeface, soft colour, generous space. NIYOM uses none of Stripe's fonts, logo or text.
 
-| The reference does | NIYOM does |
+| Idea | How NIYOM does it |
 | --- | --- |
-| One serif family everywhere, with italic sub-labels | **Newsreader** for everything; its optical sizes give tight display cuts and open text cuts. Requirement codes are set in small caps. Noto Serif Bengali sets নিয়ম and the engraved Bengali words. |
-| A pastel wash behind the opening screen | A **monsoon-morning wash** (lilac, mist blue, paddy green, lotus pink) under the top bar and the rail. |
-| Each book is a chapter with its own colour field | **Each dossier is a chapter**: forest (Merit Grant), night violet (railway), olive and navy (ICT), maroon (e-passport). Working pages take a light tint of that colour and fade between tints when you switch dossiers. |
-| A fixed rail with one tick per section | **A rail that breathes with your scroll on every page.** Sections opt in with `data-rail`. Each is a line resting at 40% of its length; the lines swell around the place you are reading, and under the pointer the swell follows the pointer like a dock. The current section's name appears beside its line for a moment when you enter it, or beside any line you point at, in small type with parentheses dropped. The rail takes the ink of whatever lies beneath it. Lengths change with `transform: scaleX`, so the swell never causes layout. |
-| A 3D book in perspective | **Each dossier as its own object, stacked by version**: an official circular with a seal, e-tickets with a perforated stub and barcode, a code window whose changed lines light up, a passport booklet. These appear in the Overview chapters and on each dossier's page, not in the hero (see section 3). |
-| A stroke-drawn monogram | **An "N" engraved as three parallel strokes**: the same rule written three times, one per version. It draws itself on load beside the wordmark and নিয়ম. The favicon uses a solid N, because hairlines turn to mush at 16px. |
+| One typeface, used well | **Newsreader** for everything, with **Noto Serif Bengali** for নিয়ম and the Bengali words. Requirement codes are set in small capitals. |
+| A soft wash behind the first screen | A **monsoon-morning wash** (lilac, mist blue, paddy green, lotus pink). |
+| Each topic has its own colour | **Each notice is a chapter** with its own colour: forest green (Merit Grant), night violet (railway), olive and navy (ICT), maroon (e-passport). Working pages take a light tint of that colour. |
+| A side rail that shows where you are | **A rail of short lines on every page.** The lines swell around the part you are reading, and follow your pointer like a dock. The current section's name appears for a moment as you enter it. |
+| Objects you want to touch | **Each notice as a physical object**: an official circular with a seal, an e-ticket with a tear-off stub, a code window, a passport. In the chapters they open like a bundle of papers. |
+| A memorable mark | **An "N" drawn as three parallel lines**: the same rule written three times, once per version. |
 
-Geometry is soft but not rounded for its own sake: 10px on controls, 14px on cards, 20px on panels, 4–6px on paper.
+Corners are soft but not bubbly: 10px on controls, 14px on cards, 20px on panels, 4–6px on paper.
 
-## 3. The Overview, top to bottom
+## 3. The home page, top to bottom
 
-**The hero: the idea, played by the visitor.** A notice sits on the desk with its published versions as a switch: *Original · Update 1 · Update 2*. The visitor is shown an applicant who prepared every paper for the original. Switching to a later version:
+**The opening scene.** The first thing a visitor sees should explain the whole product in a few seconds, without reading a table. So the hero is a short scene that plays by itself, in three steps that are listed beside it:
 
-- strikes each changed clause and writes the new wording in under a marker, an added rule slides in marked *New*, and a cosmetic edit is shown in quiet grey and labelled *Cosmetic*;
-- stamps the sheet (*Corrigendum*, *Amended* or *Addendum*, in red only when something that matters changed);
-- drops the readiness meter beside it by exactly what that version invalidates, with the papers themselves turning amber (stale) or outlined (new).
+1. **You prepare every paper.** An official notice sits on the desk. NIYOM's card shows the student's folder: 100% ready, every paper matching.
+2. **The notice is quietly corrected.** A *Corrigendum* stamp lands on the notice, and the changed rules are struck through and rewritten word by word. The folder still says 100%, which is exactly the problem.
+3. **NIYOM shows what it broke.** NIYOM's card arrives like a phone notification: readiness drops to 57%, and it names the two papers to check again and the one that is now required.
 
-Four tabs switch the dossier. Pointing at a clause shows where the paper comes from: the issuing office and its lead time in working days, or that there is nothing to collect at a counter. **Try it on my checklist** then plays the same update on the visitor's own plan: the notification arrives, the bell rings, the nav's readiness changes and the page scrolls to *Your next steps*. On a 1366×650 laptop viewport the version switch, the meter and its button all sit above the fold, and the meter card never moves when an update makes the sheet longer.
+The scene takes about four seconds, plays once when it comes into view, and then stays still. Visitors can click any step to see that moment, replay it, or play it on any of the four notices. **Try it on my checklist** then applies the same correction to the visitor's own checklist and scrolls to their next steps. The headline says the problem in seven words: *The notice changed. Your papers didn't.*
 
-Earlier heroes showed a 3D paper stack (it repeated the chapters below and, for a passport, broke the layout) and then a single animated scene beside a second status card (two cards competing, starting at 0%). Both were replaced by this one interaction, which states the thesis in a few seconds: you were 100% prepared, and a corrigendum quietly undid it.
+Earlier versions of the hero were replaced:
+- a 3D stack of papers repeated the chapters further down, and broke the layout for the passport;
+- a version switch with a list of clauses worked, but looked like a form or a table on first sight, which is the wrong first impression.
 
-**The corrigendum, word by word.** A pinned scene a few screens long. Scrolling rewrites each change that matters in the Merit Grant, one word at a time: a line drawn through each struck word, then each new word under a marker, and the date reading "15 → 25 Nov 2026". It plays like an old picture show: a dark sepia screen, film sprockets that run with the scroll, grain and a slight projector flicker (only while on screen), a vignette, and the readiness figure in a silent-film title card falling 100 → 83 → 71 → 57 as the engine applies each change in turn. Screen readers get the same story as a list.
+**The corrigendum, word by word.** A section a few screens long. As you scroll, each change in the Merit Grant is rewritten one word at a time, like an old film: a dark sepia screen, film edges that run with the scroll, grain and a slight flicker. The readiness figure falls 100 → 83 → 71 → 57 as each change lands. Screen readers get the same story as a plain list.
 
-**Your next steps.** The changed items with a redline of what you prepared against what the notice now says, the conflicts between official sources, and what is not prepared yet. Beside them, a sticky manila folder lists every required paper and where it stands.
+**Your next steps.** The papers that changed (what you prepared next to what the notice now says), the places where official sources disagree, and what isn't prepared yet. Beside them, a manila folder lists every required paper and where it stands.
 
-**When to start.** One sentence ("Start by Sunday, 08 Nov 2026"): the working days your remaining papers need at their offices, counted over the Sunday–Thursday week.
+**When to start.** One sentence, such as "Start by Sunday, 08 Nov 2026": the working days your remaining papers need, counted over the Sunday–Thursday week.
 
-**Not every change is news.** The Merit Grant's three versions side by side: one revision only moved a helpdesk room, the other changed what you must submit.
+**Not every change is news.** The Merit Grant's three versions side by side: one only moved a helpdesk; the other changed what you must submit.
 
-**Chapters.** Each dossier in its own colour field. Its object opens like a book once 40% of it is in view: the cover swings over, three printed pages riffle after it, and the spread lands flat with the version on the left and what that version asks of you on the right, ticked live from your checks.
+**Chapters.** Each notice in its own colour. Its object opens like a book when you reach it: the cover swings over, printed pages riffle after it, and it lands flat, with the version on one side and what it asks of you on the other.
 
-**Footer.** At least one screen tall at the end of a page, so the floating top bar sits over the footer and never over a sliver of the band above it. It carries the promise, every way back in, the next closing date across all dossiers (with a calendar file), and the disclaimer. Links draw their underline in from the left.
+**Footer.** At least one screen tall, so the floating top bar never sits over a strip of the section above. It holds the promise, every way back into the app, the next closing date, and the disclaimer.
 
 ## 4. Motion
 
-Motion either answers something you did or marks one deliberate moment.
+Motion either answers something you did, or marks one planned moment. Nothing moves just to decorate.
 
-| Moment | Behaviour |
+| Moment | What happens |
 | --- | --- |
-| Page change | React 19.3 `<ViewTransition>`: the old page fades, the new one rises. Navigation lands at the top at once (`data-scroll-behavior="smooth"` on `<html>`, needed since Next 16). |
-| Hero version switch | Strike (150 ms), new wording (420 ms), stamp (600 ms); the meter tweens to its new figure. The newest version pulses softly until the visitor first switches. |
-| Re-verify, check, profile change | Inside the View Transition API: items glide to their new group while readiness counts up. |
-| Books that open | See section 3. The other versions in the stack fade as the book opens; the spread has page edges, a shaded gutter and a shadow on the band. |
-| Papers, not dials | Readiness is shown as the papers themselves: one sheet per required item, solid when checked, amber when stale, outlined when missing. |
-| Top bar | Tucks into a floating pill once you scroll. Its height never changes, so nothing below it moves. |
-| Type that drifts | নিয়ম behind the hero, each chapter's version name behind its band, and one engraved word on every other page (তালিকা on the Directory, the version on a specification, সংশোধনী on Changes, প্রস্তুতি on My plan). Native scroll-driven animations: no JavaScript, still where unsupported. |
-| Panels and popovers | Native `<dialog>` and the popover API; both animate, and Esc and click-outside work. |
-| Reduced motion | Every animation ends at once and shows its final state; the scroll and pointer loops do not run. |
+| The opening scene | Stamp (460 ms), strike-through (420 ms), new words under a marker (600 ms), then the card drops in and its number counts down. About four seconds in all, then still. |
+| Changing page | The old page fades and the new one rises (React `<ViewTransition>`). |
+| Ticking or re-checking a paper | Papers glide to their new group while readiness counts up. |
+| Books that open | The cover and pages turn once, when the book is well in view. |
+| Papers, not dials | Readiness is shown as small paper sheets: solid when ready, amber when out of date, outlined when missing. |
+| Top bar | Shrinks into a floating pill when you scroll. Its height never changes, so nothing below it jumps. |
+| Drifting words | নিয়ম behind the hero and one large word on each page drift slowly with the scroll, using CSS only. |
+| Reduced motion | If your device asks for less motion, every animation jumps straight to its end, and the scene opens on its last step. |
 
-Scroll-linked motion writes CSS variables from one `requestAnimationFrame` loop, so scrolling never re-renders React, and each loop runs only while its element is on screen. A page at rest does no work: no video, no canvas, zero layouts while idle.
+**Smooth scrolling.** Anything that moves with the scroll is updated once per frame, and only while it is on screen. Each moving part writes a finished `transform` onto one element. It does not change a CSS variable that hundreds of child elements would have to recalculate, and it does not restart a CSS transition on every frame. Measured in a production build, each opening book now restyles fewer than 10 elements per frame instead of about 200. A typical frame while scrolling the home page dropped from 33 ms to 16.7 ms, which is 60 frames per second. A page at rest does no work at all.
 
 ## 5. Phones, tablets and touch
 
-- **No rail below 640px.** On a phone the rail cost 36px of a 360px screen for ticks too small to tap. Phones get even 16px margins; the top bar and menu carry navigation.
-- **Nothing scrolls sideways** at 360px or wider. Grids that gain columns at a breakpoint start from one shrinkable column, and the page shell clips stray overflow (`overflow-x: clip`) without clipping the full-bleed bands.
-- **Fingers, not cursors.** Small text controls get an invisible 44px hit area (`.tap`): checkboxes, *Add to calendar*, *Details*, *I saw this too*, footer links.
-- **Every panel fits and scrolls inside**: menu, search, alerts, inspector, report form, help, Live API.
+- **No rail below 640px.** On a phone the rail would cost space for lines too small to tap. Phones get even 16px margins, and the top bar and menu handle navigation.
+- **Nothing scrolls sideways** at 360px or wider.
+- **Big enough to tap.** Small text buttons get an invisible 44px touch area.
+- **Every panel fits and scrolls inside**: menu, search, alerts, details, report form, help, Live API.
+- **The opening scene on a phone:** the notice fills the width, NIYOM's card overlaps its foot, and the steps and buttons follow below.
 
 ## 6. Notifications
 
-They behave like system banners on an iPhone or Mac: a translucent, blurred panel with an app icon, a bold title, "now" and a line or two of body, set in the system font because a notification is the device speaking, not the document. They drop in under the top bar on a damped spring, pause while hovered or held, and can be swiped up or sideways. The close button sits inside the banner at the right and is always visible, since touch screens have no hover. "You're offline" stays pinned until the connection returns.
+Notifications look like the system banners on a phone: a frosted panel, an app icon, a bold title, "now", and a line or two of text. They use the system font, because a notification is the device talking, not the document. They drop in under the top bar, pause while you hover or hold them, and can be swiped away. The close button is always visible, because touch screens have no hover.
 
 ## 7. Forms
 
-The report form uses listboxes in the house style instead of the browser's menu: a chapter swatch or requirement code, a second line, a check on the chosen item, arrow keys, Home and End, and Escape that closes the list without closing the form. Each kind of report is a card with an icon and one line on what it means. Text areas show a character count. Scrollbars are thin and take the ink of what they scroll.
+The report form uses custom dropdowns in the app's style instead of the browser's default: each option shows a colour or code and a second line, and they work with arrow keys, Home, End and Escape. Each kind of report is a card with an icon and one line explaining it. Text boxes show a character count.
 
 ## 8. Backend: who owns which data
 
-- **What you prepared is private.** On first contact the server issues an anonymous `HttpOnly` device cookie. Your profile, checks and followed versions are stored under that device. Reset clears only yours.
-- **What applicants saw at the counter is public, and has to be earned.** A field report becomes a *corroborated pattern* only when three different devices confirm it. You cannot confirm your own report or confirm one twice, and who filed or confirmed a report is never sent to anyone.
-- **Nothing is lost when connections or requests go wrong.** Checks merge record by record by `updatedAt`, so an older request never overwrites a newer one. Edits wait in a queue and are sent when the connection returns.
-- **Bad input is refused, not stored.** Every body is validated with Zod and checked against the dataset: unknown ids or versions return `422`, large bodies `413`, report spam `429` (per device and per IP).
-- **A real database everywhere.** With `DATABASE_URL`, the ledger is that Postgres. Without it, on any machine with a disk, the server starts an embedded Postgres (PGlite) and talks to it through the same `pg` driver and SQL. Each write is one statement whose rule the database enforces: a newer check wins, versions merge, a confirmation is a unique (report, device) row. A JSON file remains only as a fallback, and `/api/health` reports which store answers.
-- **Outages are expected, not fatal.** A database outage returns `503` with `Retry-After`; every error is JSON with a request id; pages and the redline keep working from the browser's IndexedDB copy.
+- **What you prepared is private.** On your first visit the server gives your browser an anonymous ID in an `HttpOnly` cookie. Your profile, ticks and notes are saved under that ID. "Reset" clears only yours.
+- **What students saw at the counter is public, and has to be earned.** A field report becomes a *confirmed pattern* only when three different devices confirm it. You can't confirm your own report or confirm one twice, and nobody is told who filed or confirmed a report.
+- **Nothing is lost when the connection drops.** Changes wait in a queue and are sent when you're back online. The server merges them record by record, so an older change never overwrites a newer one.
+- **Bad input is refused, not stored.** Every request is checked with Zod and against the data: unknown notices or versions get `422`, oversized requests `413`, and spam `429`.
+- **A real database everywhere.** The live site uses Postgres (Neon). On your computer, the server starts a small embedded Postgres, using the same driver and SQL. Each save is one statement, and the database enforces the rules.
+- **Outages are expected.** If the database is down, the API answers `503` with a retry time, and the app keeps working from the copy in your browser.
 
 ## 9. Removed, and why
 
-- **A 3D paper stack in the hero.** It repeated the chapters and broke the layout for the passport. Replaced by the version switch.
-- **An ambient Three.js background with looping videos.** About 1 MB on a phone, a WebGL loop, and 160 layouts per five idle seconds. Removing it took the home page's JavaScript from 478 KB to 283 KB and idle work to zero. `three`, `framer-motion` and `motion` went with it.
-- **"Check all required".** One tap claimed every document was prepared, which made the readiness figure meaningless.
-- **A readiness ring.** It read as a generic dashboard widget; the papers themselves replaced it.
-- **An auto-advancing "motion graph" reel.** Replaced by the static, readable plan.
-- **The generic SaaS kit**: a zinc palette with emerald buttons, a frosted-glass navbar, an eyebrow badge above the hero, a three-card bento grid, Geist and Inter.
+- **Two earlier heroes** (a 3D paper stack, then a version switch with a clause list). See section 3.
+- **A Three.js background with looping videos.** It added about 1 MB on phones and kept the processor busy even when nothing happened. Removing it cut the home page's JavaScript from 478 KB to 283 KB.
+- **A "Check all required" button.** One tap claimed every document was ready, which made the readiness figure meaningless.
+- **A readiness ring.** It looked like a generic dashboard widget. The paper sheets replaced it.
+- **The generic startup look**: grey and emerald colours, a frosted navbar, a badge above the headline, a grid of three cards, and the Geist and Inter fonts.
 
-## 10. Departures from the original brief
+## 10. Where it differs from the original brief
 
-- **Fonts:** Geist, Geist Mono and Inter were replaced by Newsreader and Noto Serif Bengali.
-- **Colours:** the brief's forest green is kept as the Merit Grant chapter. Status inks (ok, warn, critical) pass WCAG AA on every tint.
-- **Navigation:** the numbered tab masthead and the dark scenario bar were replaced by the rail, a quiet top bar and a Walkthrough popover.
-- **Corrigendum banner:** replaced by the alerts bell and a notification.
-- **Figures:** the brief's examples (50%, 1 stale, 3 changes) did not match the seed data; the interface shows what the engine computes (section 1).
+- **Fonts:** Newsreader and Noto Serif Bengali instead of Geist and Inter.
+- **Colours:** the brief's forest green is kept as the Merit Grant's colour. Status colours pass WCAG AA contrast on every tint.
+- **Navigation:** the side rail, a quiet top bar and a Walkthrough menu instead of numbered tabs and a dark bar.
+- **Correction banner:** replaced by the alerts bell and a notification.
+- **Figures:** the brief's example numbers didn't match the sample data, so the app shows what the engine calculates (section 1).
 
 ## 11. Known limits
 
-- The dossiers, offices and lead times are an illustrative, hand-modelled dataset. A real product needs an ingestion pipeline from notice PDF to structured requirements, with human review.
-- There are no accounts. Your state is saved on the server for your device but does not move between devices, and alerts appear only in the app (no SMS or email).
-- Rate limits are counted in each server instance's memory; with several instances a determined client gets a few more requests through. A shared store such as Redis would make them exact.
-- One person with several browsers counts as several devices when confirming a report. Blocking by IP would also block students on a shared campus or carrier address, so the three-device threshold and per-IP limits are the guard instead.
-- View transitions animate in Chromium, Safari and recent Firefox; elsewhere, changes are instant with no loss of function.
+- The notices, offices and lead times are hand-made sample data. A real product needs a way to turn notice PDFs into structured requirements, with a person reviewing them.
+- There are no accounts. Your data is saved on the server for your browser, but it doesn't move to another device, and alerts appear only in the app (no SMS or email).
+- Rate limits are counted by each server instance separately. A shared store such as Redis would make them exact.
+- One person using several browsers counts as several devices when confirming a report. Blocking by IP address would also block students on a shared campus network, so the three-device rule and per-IP limits are the protection instead.
+- Page transitions animate in Chrome, Safari and recent Firefox. In other browsers pages change instantly, with nothing lost.
