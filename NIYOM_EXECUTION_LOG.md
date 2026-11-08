@@ -22,6 +22,7 @@ This is the build journal for NIYOM, in the order the work happened. Each phase 
 | L | 8 Nov | Figures pinned by tests, documents for submission | 81 |
 | M | 8 Nov | Live on Vercel with a Neon database | 81 |
 | N | 8 Nov | The opening scene, smoother scrolling, documents rewritten for reviewers | 81 |
+| O | 8 Nov | README refocused on the problem, the features and their scope; three display fixes | 81 |
 
 ---
 
@@ -164,3 +165,19 @@ This is the build journal for NIYOM, in the order the work happened. Each phase 
   - no sideways scrolling;
   - all four books still open;
   - the console is clean.
+
+## Phase O: A README about the problem and the features, and three display fixes (8 Nov)
+
+- **README refocused** on what reviewers are asked to judge: the problem, the features built (with the problem each one solves), how they work, and the potential and scope.
+  - The link table at the top became a single row of links, with a screenshot of the opening scene.
+  - Screenshots of *Your next steps*, *Changes* and *My plan* now sit beside the features they show (`docs/images/`).
+  - New section: *Potential and scope* (who it can help, why it can grow, what it does not do yet, what comes next).
+  - Removed or folded away what reviewers don't need: the screens table, the deployment steps, the storage table, and the folder tree and API table (now collapsible).
+- **Dates read the same everywhere.** Deadlines showed as `2026-11-15` in *Your next steps*, *Changes*, *My plan*, the details panel and the printed slip, while the opening scene said "15 Nov 2026". A shared `displayValue` in `src/lib/format.ts` now formats them at every place a requirement is shown. The engine and the API keep ISO dates, so day counts are unchanged.
+- **The line under each requirement** read "Required , Department Head / Advisor Office", and the comma could wrap onto a line of its own. The office now sits in the same run of text: "Required, Department Head / Advisor Office, about 2 working days".
+- **Reduced motion:** with *reduce motion* switched on, the film scene's edges spilled about 1100px past the scene as two dark bars down the sides of *Your next steps*. The scene's stage now stays their containing block, so it clips them. Normal motion is unchanged.
+- **Checked:**
+  - typecheck, lint, 81 of 81 tests and the production build all pass;
+  - in Chrome, on a production build: the dates and the requirement line on *Your next steps*, *Changes* and *Specification*;
+  - the film scene with reduced motion on and off;
+  - no sideways scrolling at 390px.

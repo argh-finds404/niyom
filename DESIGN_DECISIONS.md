@@ -23,7 +23,7 @@ This document explains why NIYOM looks and works the way it does, in plain words
 
 The test is `tests/domain/prepared.test.ts`; the function is `readinessIfPreparedForOriginal` in `src/domain/readiness/calculate.ts`.
 
-**Plain names for versions.** "v1.0" and "v2.0" mean little to a student at a counter. The app says *Original*, *Update 1*, *Update 2*, in the order they were published. The official label (such as "Major Corrigendum") is still shown next to it, and the API keeps the official labels.
+**Plain names for versions.** "v1.0" and "v2.0" mean little to a student at a counter. The app says *Original*, *Update 1*, *Update 2*, in the order they were published. The official label (such as "Major Corrigendum") is still shown next to it, and the API keeps the official labels. Dates follow the same rule: the app always writes *25 Nov 2026*, never `2026-11-25`, while the engine and the API keep ISO dates.
 
 **Less on screen at once.** Each requirement shows a tick, its name, the rule and at most one status. Everything else (does it apply to you, history, sources, conflicts, field reports) opens in a side panel when you ask for it.
 
