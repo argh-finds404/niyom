@@ -333,7 +333,7 @@ let engine = "";
 
 function store(): LedgerStore {
   if (active) return active;
-  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.STORAGE_URL;
   if (url && !IN_TEST) {
     const pool = new Pool({
       connectionString: url,
