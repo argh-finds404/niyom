@@ -88,7 +88,7 @@ function Banner({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number) =>
           onPointerUp={onPointerEnd}
           onPointerCancel={onPointerEnd}
           className={cn(
-            "banner pointer-events-auto relative flex cursor-grab select-none items-start gap-3 rounded-[22px] p-3 pr-4 active:cursor-grabbing",
+            "banner pointer-events-auto relative flex cursor-grab select-none items-start gap-3 rounded-[22px] p-3 pr-2.5 active:cursor-grabbing",
             toast.leaving ? "banner-leave" : "banner-enter"
           )}
         >
@@ -104,9 +104,9 @@ function Banner({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number) =>
             type="button"
             aria-label="Dismiss notification"
             onClick={() => onDismiss(toast.id)}
-            className="banner-close absolute -left-1.5 -top-1.5 grid h-[22px] w-[22px] place-items-center rounded-full bg-[#fcfbf8] text-[#1c1b19]/70 shadow-[0_0_0_0.5px_rgba(28,27,25,0.18),0_2px_6px_-1px_rgba(28,27,25,0.2)] hover:text-[#1c1b19]"
+            className="banner-close -my-0.5 grid h-7 w-7 flex-none place-items-center rounded-full text-[#1c1b19]/55 hover:bg-[#1c1b19]/[0.07] hover:text-[#1c1b19]"
           >
-            <X strokeWidth={2.6} className="h-3 w-3" />
+            <X strokeWidth={2.4} className="h-3.5 w-3.5" />
           </button>
           <span aria-hidden onAnimationEnd={() => onDismiss(toast.id)} className="banner-clock pointer-events-none absolute h-px w-px opacity-0" />
         </div>

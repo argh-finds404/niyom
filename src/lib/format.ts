@@ -3,7 +3,6 @@ import type {
   ApplicantProfile,
   DossierCategory,
   FreshnessState,
-  ImpactLevel,
   Notice,
   RequirementCategory,
   RequirementChange,
@@ -74,12 +73,6 @@ export const FRESHNESS_LABEL: Record<FreshnessState, string> = {
   review_due: "Review due",
   source_unavailable: "Source unavailable",
   superseded: "Superseded",
-};
-
-export const IMPACT_LABEL: Record<ImpactLevel, string> = {
-  critical: "Critical",
-  "action-needed": "Action needed",
-  informational: "Informational",
 };
 
 export const REPORT_TYPE_LABEL = {

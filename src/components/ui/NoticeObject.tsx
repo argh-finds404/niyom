@@ -160,7 +160,7 @@ const reduceMotion = () => typeof window !== "undefined" && matchMedia("(prefers
 
 /**
  * The notice as a physical object: each published version is a sheet in a stack, seen in
- * perspective. It deals in on first view, floats, fans out under the pointer, turns as its
+ * perspective. It deals in on first view, fans out under the pointer, turns as its
  * section scrolls past, and when a newer version becomes active that sheet drops onto the
  * stack and its stamp lands.
  *
@@ -173,7 +173,6 @@ export function NoticeObject({
   className,
   morph = false,
   compact = false,
-  float = false,
   scrollTurn = true,
   open,
   pinned = false,
@@ -182,7 +181,6 @@ export function NoticeObject({
   className?: string;
   morph?: boolean;
   compact?: boolean;
-  float?: boolean;
   scrollTurn?: boolean;
   /** Open like a book: "scroll" as it rises into view, "view" once it is seen. */
   open?: "scroll" | "view";
@@ -370,7 +368,7 @@ export function NoticeObject({
       role="img"
       aria-label={`${notice.title}: ${notice.versions.length} published versions, ${activeLabel} on top`}
     >
-      <div className={cn("absolute inset-0", float && "object-float")}>
+      <div className="absolute inset-0">
         <div
           ref={scrollStage}
           className="absolute inset-0 [transform-style:preserve-3d] will-change-transform"

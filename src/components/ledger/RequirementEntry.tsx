@@ -130,7 +130,7 @@ export function RequirementEntry({
           <Redline before={item.previouslyVerifiedValue ?? ""} after={r.value} fromTag="yours" toTag={tag} />
           {item.evidenceNote && (
             <p className="mt-2.5 text-[14.5px] text-ink-2">
-              Your v1.0 folder memo:{" "}
+              Your earlier folder memo:{" "}
               <span className="font-medium text-ink">&ldquo;{item.evidenceNote}&rdquo;</span> — open details to update once re-verified.
             </p>
           )}

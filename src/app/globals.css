@@ -421,16 +421,9 @@ dialog[data-closing] .ov-top {
   animation-play-state: paused;
 }
 .banner-close {
-  opacity: 0;
-  transform: scale(0.85);
   transition:
-    opacity 160ms var(--ease-out),
-    transform 220ms var(--ease-spring);
-}
-.banner:hover .banner-close,
-.banner-close:focus-visible {
-  opacity: 1;
-  transform: none;
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out);
 }
 .check-draw {
   stroke-dasharray: 24;
@@ -570,15 +563,6 @@ dialog[data-closing] .ov-top {
     rotate: 6deg;
   }
 }
-@keyframes float {
-  0%,
-  100% {
-    translate: 0 0;
-  }
-  50% {
-    translate: 0 -8px;
-  }
-}
 @keyframes drop-on {
   0% {
     opacity: 0;
@@ -623,10 +607,6 @@ dialog[data-closing] .ov-top {
 }
 .stamp-thump {
   animation: thump 520ms var(--ease-spring) 520ms both;
-}
-.object-float {
-  animation: float 7s var(--ease-in-out) infinite;
-  will-change: translate;
 }
 
 /* ── Rail ticks breathe in one after another. ── */
@@ -988,4 +968,101 @@ dialog[data-closing] .ov-top {
 }
 [data-open] .book-leaf-x {
   animation: leaf-x 1050ms var(--ease-spring) calc(280ms + var(--k) * 180ms) both;
+}
+
+/* ── Hero (HeroScene): switching versions rewrites the changed clauses and stamps the sheet.
+   The clause list is re-keyed on every switch, so these run again each time. With reduced motion
+   every animation ends at once and the finished sheet shows. ── */
+@keyframes hero-sheet {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+.hero-sheet {
+  animation: hero-sheet 800ms var(--ease-spring) both;
+}
+@keyframes hero-strike {
+  to {
+    color: #a63a2a;
+    background-size: 100% 2px;
+  }
+}
+.hero-del {
+  color: #1c1b19;
+  background: linear-gradient(#a63a2a, #a63a2a) no-repeat 0 58% / 0% 2px;
+  animation: hero-strike 420ms var(--ease-out) 150ms forwards;
+}
+@keyframes hero-ins {
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    background-size: 100% 100%;
+  }
+}
+.hero-ins {
+  border-radius: 3px;
+  background: linear-gradient(#f2d98c, #f2d98c) no-repeat 0 100% / 0% 100%;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  opacity: 0;
+  animation: hero-ins 600ms var(--ease-spring) 420ms forwards;
+}
+/* A cosmetic edit is shown, but quietly: grey, no marker. */
+@keyframes hero-strike-soft {
+  to {
+    background-size: 100% 1px;
+  }
+}
+.hero-del-soft {
+  color: #8a847a;
+  background: linear-gradient(#8a847a, #8a847a) no-repeat 0 58% / 0% 1px;
+  animation: hero-strike-soft 420ms var(--ease-out) 150ms forwards;
+}
+.hero-ins-soft {
+  text-decoration: underline dotted #8a847a;
+  text-underline-offset: 3px;
+  animation: fade-in 500ms var(--ease-out) 420ms both;
+}
+.hero-tag {
+  animation: fade-in 400ms var(--ease-out) 300ms both;
+}
+@keyframes hero-stamp {
+  from {
+    opacity: 0;
+    transform: rotate(-7deg) scale(1.8);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-7deg) scale(1);
+  }
+}
+.hero-stamp {
+  opacity: 0;
+  transform: rotate(-7deg);
+  animation: hero-stamp 520ms var(--ease-spring) 600ms forwards;
+}
+@keyframes hero-line {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+.hero-line {
+  animation: hero-line 500ms var(--ease-spring) 650ms both;
+}
+/* Until the visitor switches, the latest version invites a click. */
+@keyframes hero-hint {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(166 58 42 / 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(166 58 42 / 0.22);
+  }
+}
+.hero-hint {
+  animation: hero-hint 2.2s var(--ease-in-out) 1.4s 3;
 }

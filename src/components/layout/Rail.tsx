@@ -318,12 +318,12 @@ export function Rail() {
                   <span
                     aria-hidden
                     className={cn(
-                      "pointer-events-none absolute left-[calc(100%+6px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-[5px] px-1.5 py-px text-[12px] font-semibold leading-tight transition-[opacity,transform] duration-300 ease-out",
+                      "pointer-events-none absolute left-[calc(100%+6px)] top-1/2 w-max max-w-[150px] -translate-y-1/2 rounded-[5px] px-1.5 py-px text-[12px] font-semibold leading-tight transition-[opacity,transform] duration-300 ease-out",
                       named === i ? "translate-x-0 opacity-100" : "-translate-x-1.5 opacity-0"
                     )}
                     style={{ background: bg ? `color-mix(in srgb, ${bg} 88%, transparent)` : undefined }}
                   >
-                    {label}
+                    {label.replace(/\s*\([^)]*\)/g, "")}
                   </span>
                 </li>
               );

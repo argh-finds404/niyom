@@ -6,7 +6,7 @@ import { compareNoticeVersions } from "@/domain";
 import { useNiyomStore } from "@/hooks/useNiyomStore";
 import { useUiStore } from "@/hooks/useUiStore";
 import { useAllIntelligence, useDossierIntelligence, type DossierIntelligence } from "@/hooks/useDossierIntelligence";
-import { HERO_NOTICE_ID, useScenarios } from "@/hooks/useScenarios";
+import { HERO_NOTICE_ID } from "@/hooks/useScenarios";
 import { chapterOf } from "@/lib/chapters";
 import { CATEGORY_LABEL, formatDate, isConsequential, isCosmetic, plural, shortTitle, versionPhrase, versionTag } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -15,107 +15,26 @@ import { NoticeObject } from "@/components/ui/NoticeObject";
 import { Deadline } from "@/components/ui/Deadline";
 import { scheduleHeadline } from "@/components/ui/PrepSchedule";
 import { CorrigendumScene } from "@/components/ui/CorrigendumScene";
+import { HeroScene } from "@/components/ui/HeroScene";
 import { PaperRow, VersionTrack } from "@/components/ui/Visuals";
-import { ActionRowLink, ActionRows, AnimatedNumber, Button, Skel, buttonClass, withViewTransition } from "@/components/ui/primitives";
+import { ActionRowLink, ActionRows, Button, Skel, buttonClass, withViewTransition } from "@/components/ui/primitives";
 import { Redline } from "@/components/ledger/parts";
 
 const link = "font-semibold underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink";
 
 /* ───────────── Hero ───────────── */
 
-function StatusCard({ intel }: { intel: DossierIntelligence }) {
-  const hydrated = useNiyomStore((s) => s.isHydrated);
-  const stage = useNiyomStore((s) => s.demoScenarioStage);
-  const scenarios = useScenarios();
-  const { notice, activeVersion, readinessSummary: s } = intel;
-  const tag = versionPhrase(activeVersion);
-  const canSimulate = notice.id === HERO_NOTICE_ID && stage !== "v2_updated" && notice.activeVersionNumber < 3;
-
-  return (
-    <div className="mt-10 rounded-[var(--r-panel)] bg-white/55 p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.7),0_24px_60px_-34px_rgba(28,27,25,0.45)] sm:p-7">
-      <div className="flex items-center gap-3">
-        <span data-cover={chapterOf(notice.id)} className="h-9 w-7 flex-none rounded-[5px]" aria-hidden />
-        <div className="min-w-0">
-          <p className="truncate text-[16.5px] font-semibold leading-tight">{shortTitle(notice)}</p>
-          <p className="text-[14.5px] italic text-ink-3">
-            Checked against {tag}, published {formatDate(activeVersion.publishedAt)}
-          </p>
-        </div>
-      </div>
-
-      <p className="mt-5 flex items-baseline gap-3">
-        <span className="display text-[60px] leading-none">
-          {hydrated ? <AnimatedNumber value={s.percentage} /> : <Skel className="h-12 w-24" />}
-          <span className="text-[30px]">%</span>
-        </span>
-        <span className="text-[17px] text-ink-2">{hydrated && s.percentage === 100 ? "ready to submit" : "ready"}</span>
-      </p>
-      {hydrated ? (
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <PaperRow items={s.items.filter((i) => i.requirement.mandatory && i.applicability === "APPLIES").map((i) => ({ id: i.requirement.id, title: i.requirement.title, status: i.readinessStatus }))} size={1.15} />
-          <span className="num text-[15px] italic text-ink-3">
-            {s.completedMandatoryCount} of {s.totalApplicableMandatoryCount} papers
-          </span>
-        </div>
-      ) : (
-        <Skel className="mt-4 h-6 w-48" />
-      )}
-
-      {hydrated && (s.staleReverificationCount > 0 || s.conflictCount > 0) && (
-        <ul className="mt-5 space-y-1.5 text-[16px]">
-          {s.staleReverificationCount > 0 && (
-            <li className="flex items-baseline gap-2.5 text-warn">
-              <span aria-hidden className="h-2 w-2 flex-none translate-y-[-1px] rounded-full bg-[#c08a2a]" />
-              {plural(s.staleReverificationCount, "check")} changed under you
-            </li>
-          )}
-          {s.conflictCount > 0 && (
-            <li className="flex items-baseline gap-2.5 text-crit">
-              <span aria-hidden className="h-2 w-2 flex-none translate-y-[-1px] rounded-full bg-crit" />
-              {s.conflictCount === 1 ? "One rule where official sources disagree" : `${s.conflictCount} rules where official sources disagree`}
-            </li>
-          )}
-        </ul>
-      )}
-      <Deadline notice={notice} compact className="mt-5" />
-
-      <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <Link href="/my-plan" className={buttonClass("primary")}>
-          {hydrated && s.staleReverificationCount ? "Re-verify in my plan" : "Open my plan"}
-        </Link>
-        {canSimulate && (
-          <button type="button" onClick={scenarios.simulateCorrigendum} className={cn("text-[16px] italic", link)}>
-            Watch a corrigendum arrive
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Hero({ intel }: { intel: DossierIntelligence }) {
+function Hero() {
   return (
     <Bleed data-rail="Start" className="wash relative">
-      {/* The rule's own name, engraved large behind the paper stack, drifting slower than the page. */}
+      {/* The rule's own name, engraved large behind the notice, drifting slower than the page. */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <span className="drift absolute -bottom-[0.2em] -left-[0.04em] select-none font-bengali text-[clamp(150px,30vw,440px)] leading-none text-transparent [-webkit-text-stroke:1.25px_color-mix(in_srgb,var(--ink)_13%,transparent)]">
           নিয়ম
         </span>
       </div>
-      <Container className="relative grid grid-cols-1 items-center gap-x-14 gap-y-6 pb-20 pt-8 lg:min-h-[calc(100svh-var(--bar-h))] lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:pb-24 lg:pt-6">
-        <figure className="order-2 min-w-0 lg:order-1">
-          <NoticeObject notice={intel.notice} float className="max-w-[540px]" />
-          <figcaption className="mt-3 text-center text-[15px] italic text-ink-3">
-            {shortTitle(intel.notice)} as published: {intel.notice.versions.map((v) => versionTag(v)).join(", ")}
-          </figcaption>
-        </figure>
-        <div className="order-1 min-w-0 lg:order-2">
-          <h1 className="display text-[44px] sm:text-[58px]">Be ready. Not just informed.</h1>
-          <p className="mt-5 text-[21px] italic leading-snug text-ink-2 sm:text-[23px]">
-            Notices change quietly. NIYOM tells you when a change makes your prepared documents wrong.
-          </p>
-          <StatusCard intel={intel} />
-        </div>
+      <Container className="relative pb-16 pt-6 lg:min-h-[calc(100svh-var(--bar-h))] lg:pb-12 lg:pt-[clamp(20px,calc((100svh-var(--bar-h)-680px)/2),110px)]">
+        <HeroScene />
       </Container>
     </Bleed>
   );
@@ -216,7 +135,7 @@ function ActionList({ intel }: { intel: DossierIntelligence }) {
                   <Redline className="mt-3" before={i.previouslyVerifiedValue ?? ""} after={i.requirement.value} fromTag="yours" toTag={tag} />
                   {i.evidenceNote && (
                     <p className="mt-2 text-[14.5px] text-ink-2">
-                      Your folder memo from {versionPhrase(intel.baselineVersion)}: <span className="font-medium text-ink">&ldquo;{i.evidenceNote}&rdquo;</span>
+                      Your earlier folder memo: <span className="font-medium text-ink">&ldquo;{i.evidenceNote}&rdquo;</span>
                     </p>
                   )}
                   <Button
@@ -494,7 +413,7 @@ export function OverviewScreen() {
   if (!intel) return null;
   return (
     <Page bleed>
-      <Hero intel={intel} />
+      <Hero />
       <CorrigendumScene />
       <ActionList intel={intel} />
       <WhenToStart intel={intel} />

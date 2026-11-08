@@ -20,6 +20,14 @@ export const CHAPTER_COLORS: Record<Chapter, { cover: string; ink: string }> = {
   passport: { cover: "#5b1f2b", ink: "#f1d5c7" },
 };
 
+/** Short names for tabs and other tight places. */
+export const CHAPTER_NAME: Record<Chapter, string> = {
+  merit: "Merit Grant",
+  rail: "Railway refund",
+  ict: "ICT Fellowship",
+  passport: "e-Passport",
+};
+
 /** What each kind of dossier looks like as an object. */
 export type ObjectKind = "circular" | "ticket" | "code" | "passport";
 

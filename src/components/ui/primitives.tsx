@@ -146,14 +146,6 @@ export function ActionRowLink({
   );
 }
 
-export function ActionRowButton({ label, meta, tone, className, ...rest }: RowProps & ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button type="button" className={rowClass(tone, className)} {...rest}>
-      <RowInner label={label} meta={meta} tone={tone} />
-    </button>
-  );
-}
-
 /** Groups rows into one softly rounded block with light dividers. */
 export function ActionRows({ children, className }: { children: ReactNode; className?: string }) {
   return (
@@ -188,10 +180,6 @@ export function Label({
       {meta && <span className="text-[15px] italic text-ink-3">{meta}</span>}
     </div>
   );
-}
-
-export function Rule({ className }: { className?: string }) {
-  return <span aria-hidden className={cn("block h-px w-14 bg-ink", className)} />;
 }
 
 /* ───────────────────────── Loading ───────────────────────── */

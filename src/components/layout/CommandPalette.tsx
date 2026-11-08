@@ -72,7 +72,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       {
         id: "s1",
         group: "Scenarios",
-        title: "Start prepared on v1.0",
+        title: "Start prepared on the original",
         hint: "Walkthrough step 1 · every required item checked",
         keywords: "baseline v1 ready reset scenario",
         run: () => {

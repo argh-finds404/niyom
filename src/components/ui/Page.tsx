@@ -44,8 +44,8 @@ export function Page({
           <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[100svh] overflow-hidden">
             <span
               className={cn(
-                "drift absolute right-[2%] top-[3%] select-none whitespace-nowrap leading-none text-transparent [-webkit-text-stroke:1.25px_color-mix(in_srgb,var(--ink)_12%,transparent)]",
-                bengali ? "font-bengali text-[clamp(110px,19vw,300px)]" : "text-[clamp(96px,15vw,230px)] font-semibold italic tracking-[-0.03em]"
+                "drift absolute right-[2%] top-[1%] select-none whitespace-nowrap leading-none text-transparent [-webkit-text-stroke:1.25px_color-mix(in_srgb,var(--ink)_12%,transparent)]",
+                bengali ? "font-bengali text-[clamp(64px,10vw,150px)]" : "text-[clamp(60px,9vw,140px)] font-semibold italic tracking-[-0.03em]"
               )}
             >
               {engrave}
