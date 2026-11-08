@@ -197,7 +197,7 @@ export function TopBar() {
               aria-current={n.on ? "page" : undefined}
               aria-label={n.countLabel ? `${n.label}, ${n.countLabel}` : undefined}
               className={cn(
-                "flex h-10 items-center gap-1.5 rounded-[var(--r-control)] px-3 text-[16px] transition-colors duration-200",
+                "flex h-10 items-center gap-1.5 whitespace-nowrap rounded-[var(--r-control)] px-3 text-[16px] transition-colors duration-200",
                 n.on ? "bg-ink/[0.07] text-ink" : "text-ink-2 hover:bg-ink/[0.04] hover:text-ink"
               )}
             >

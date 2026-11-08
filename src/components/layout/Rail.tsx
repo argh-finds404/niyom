@@ -42,6 +42,7 @@ export function Rail() {
   const rail = useRef<HTMLElement>(null);
   const indicator = useRef<HTMLSpanElement>(null);
   const ticks = useRef<(HTMLSpanElement | null)[]>([]);
+  const list = useRef<HTMLOListElement>(null);
   const tickCenters = useRef<number[]>([]);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const els = useRef<HTMLElement[]>([]);
@@ -237,9 +238,16 @@ export function Rail() {
     const step = c.length > 1 ? (c[c.length - 1] - c[0]) / (c.length - 1) : 1;
     swell((e.clientY - c[0]) / step + 0.5);
   };
+  // The lines follow the scroll and the pointer frame by frame, with no transition (one restarted on
+  // every frame costs a style pass per line). They glide only when they jump back as the pointer leaves.
   const onLeave = () => {
     pointerIn.current = false;
     setHover(null);
+    const ol = list.current;
+    if (ol) {
+      ol.dataset.glide = "";
+      window.setTimeout(() => delete ol.dataset.glide, 520);
+    }
     swell(activeRef.current + Math.max(0, lastProgress.current));
   };
 
@@ -284,7 +292,7 @@ export function Rail() {
             aria-hidden
             className="pointer-events-none absolute left-0 top-0 z-10 h-[3px] w-[calc(30px_+_16px*var(--p,0))] rounded-full bg-current opacity-0 transition-[transform,opacity] duration-[650ms] ease-spring will-change-transform motion-reduce:transition-none"
           />
-          <ol key={pathname} className="relative flex flex-col">
+          <ol ref={list} key={pathname} className="group/rail relative flex flex-col">
             {labels.map((label, i) => {
               const on = i === active;
               return (
@@ -308,7 +316,7 @@ export function Rail() {
                       }}
                       aria-hidden
                       className={cn(
-                        "tick-in block h-[2px] origin-left rounded-full bg-current transition-[transform,opacity] duration-500 ease-spring",
+                        "tick-in block h-[2px] origin-left rounded-full bg-current group-data-[glide]/rail:transition-[transform,opacity] group-data-[glide]/rail:duration-500 group-data-[glide]/rail:ease-spring",
                         on && "h-[2.5px]"
                       )}
                       style={{ width: TICK, transform: `scaleX(${REST})`, opacity: 0.3, animationDelay: `${160 + i * 45}ms` }}

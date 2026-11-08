@@ -158,6 +158,26 @@ function TextPage({ notice, version, page, wide }: { notice: Notice; version: No
 
 const reduceMotion = () => typeof window !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/*
+ * Scroll and pointer motion are written as a finished transform on one element. Custom properties
+ * would be inherited by every sheet and page inside, restyling a few hundred elements each frame.
+ */
+const deg = (n: number) => `${n.toFixed(2)}deg`;
+
+/** The turn as its section scrolls past; an open book turns less. */
+function turn(ry: number, ty: number, book: boolean) {
+  return book
+    ? `translate3d(0, calc(${ty.toFixed(2)}px * (1 - 0.5 * var(--open))), 0) rotateY(calc(${deg(ry)} * (1 - 0.85 * var(--open))))`
+    : `translate3d(0, ${ty.toFixed(2)}px, 0) rotateY(${deg(ry)})`;
+}
+
+/** The pose in perspective (rest: 9deg, -20deg). An open book faces the reader square-on, lying back a little as on a desk; the pointer only nudges it. */
+function pose(rx: number, ry: number, book: boolean) {
+  return book
+    ? `rotateX(calc(${deg(rx)} * (1 - var(--open)) + var(--open) * (7deg + ${deg((rx - 9) * 0.3)}))) rotateY(calc(${deg(ry)} * (1 - var(--open)) + var(--open) * ${deg((ry + 20) * 0.3)})) rotateZ(calc(1.5deg * (1 - var(--open))))`
+    : `rotateX(${deg(rx)}) rotateY(${deg(ry)}) rotateZ(1.5deg)`;
+}
+
 /**
  * The notice as a physical object: each published version is a sheet in a stack, seen in
  * perspective. It deals in on first view, fans out under the pointer, turns as its
@@ -182,8 +202,8 @@ export function NoticeObject({
   morph?: boolean;
   compact?: boolean;
   scrollTurn?: boolean;
-  /** Open like a book: "scroll" as it rises into view, "view" once it is seen. */
-  open?: "scroll" | "view";
+  /** Open like a book once it is well in view. */
+  open?: "view";
   /** Stays on screen while the page scrolls: turn with the page instead of with its own position. */
   pinned?: boolean;
 }) {
@@ -222,12 +242,11 @@ export function NoticeObject({
         const e = entries[entries.length - 1];
         if (!e.isIntersecting) return;
         el.dataset.seen = "";
-        // Open where it can be watched: once it is well in view (always, with reduced motion: then there is no scroll effect).
-        const opens = open === "view" || (open && reduceMotion());
-        if (opens && e.intersectionRatio >= 0.4) {
+        // Open where it can be watched: once it is well in view.
+        if (open && e.intersectionRatio >= 0.4) {
           timer = window.setTimeout(() => (el.dataset.open = ""), 250);
           io.disconnect();
-        } else if (!opens) io.disconnect();
+        } else if (!open) io.disconnect();
       },
       { threshold: [0.15, 0.4] }
     );
@@ -243,7 +262,7 @@ export function NoticeObject({
   useEffect(() => {
     const el = root.current;
     const sc = scrollStage.current;
-    if (!el || !sc || !(scrollTurn || open === "scroll") || reduceMotion()) return;
+    if (!el || !sc || !scrollTurn || reduceMotion()) return;
     let raf = 0;
     let visible = false;
     let elTop = 0;
@@ -266,12 +285,7 @@ export function NoticeObject({
     };
 
     const writeTransform = (p: number) => {
-      if (scrollTurn) {
-        sc.style.setProperty("--sry", `${((p - 0.5) * (pinned ? 18 : 26)).toFixed(2)}deg`);
-        if (!pinned) sc.style.setProperty("--sty", `${((0.5 - p) * 36).toFixed(2)}px`);
-      }
-      // Opens as it rises into view and stays open while it is read.
-      if (open === "scroll") el.style.setProperty("--open", Math.min(1, Math.max(0, (p - 0.1) / 0.3)).toFixed(3));
+      sc.style.transform = turn((p - 0.5) * (pinned ? 18 : 26), pinned ? 0 : (0.5 - p) * 36, !!open);
     };
 
     const tick = () => {
@@ -339,13 +353,11 @@ export function NoticeObject({
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType !== "mouse" || !stage.current || reduceMotion()) return;
     const r = pointerRect.current ?? e.currentTarget.getBoundingClientRect();
-    stage.current.style.setProperty("--ry", `${(-20 + ((e.clientX - r.left) / r.width - 0.5) * 16).toFixed(2)}deg`);
-    stage.current.style.setProperty("--rx", `${(9 - ((e.clientY - r.top) / r.height - 0.5) * 12).toFixed(2)}deg`);
+    stage.current.style.transform = pose(9 - ((e.clientY - r.top) / r.height - 0.5) * 12, -20 + ((e.clientX - r.left) / r.width - 0.5) * 16, !!open);
   };
   const onLeave = () => {
     pointerRect.current = null;
-    stage.current?.style.removeProperty("--ry");
-    stage.current?.style.removeProperty("--rx");
+    if (stage.current) stage.current.style.transform = pose(9, -20, !!open);
   };
 
   const kind = kindOf(notice.category);
@@ -372,11 +384,7 @@ export function NoticeObject({
         <div
           ref={scrollStage}
           className="absolute inset-0 [transform-style:preserve-3d] will-change-transform"
-          style={{
-            transform: book
-              ? "translate3d(0, calc(var(--sty, 0px) * (1 - 0.5 * var(--open))), 0) rotateY(calc(var(--sry, 0deg) * (1 - 0.85 * var(--open))))"
-              : "translate3d(0, var(--sty, 0px), 0) rotateY(var(--sry, 0deg))",
-          }}
+          style={{ transform: turn(0, 0, !!book) }}
         >
           <div
             className="absolute inset-0 [transform-style:preserve-3d]"
@@ -391,12 +399,7 @@ export function NoticeObject({
           <div
             ref={stage}
             className="absolute inset-0 transition-transform duration-[900ms] ease-spring [--fan:1] [transform-style:preserve-3d] group-hover/obj:[--fan:1.55] motion-reduce:transition-none"
-            style={{
-              // An open book faces the reader square-on, lying back a little as on a desk; the pointer only nudges it.
-              transform: book
-                ? "rotateX(calc(var(--rx, 9deg) * (1 - var(--open)) + var(--open) * (7deg + (var(--rx, 9deg) - 9deg) * 0.3))) rotateY(calc(var(--ry, -20deg) * (1 - var(--open)) + var(--open) * (var(--ry, -20deg) + 20deg) * 0.3)) rotateZ(calc(1.5deg * (1 - var(--open))))"
-                : "rotateX(var(--rx, 9deg)) rotateY(var(--ry, -20deg)) rotateZ(1.5deg)",
-            }}
+            style={{ transform: pose(9, -20, !!book) }}
           >
             {notice.versions.map((v, i) => {
               // Rank 0 is the top of the stack; the active version is always on top.

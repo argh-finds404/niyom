@@ -970,9 +970,10 @@ dialog[data-closing] .ov-top {
   animation: leaf-x 1050ms var(--ease-spring) calc(280ms + var(--k) * 180ms) both;
 }
 
-/* ── Hero (HeroScene): switching versions rewrites the changed clauses and stamps the sheet.
-   The clause list is re-keyed on every switch, so these run again each time. With reduced motion
-   every animation ends at once and the finished sheet shows. ── */
+/* ── Hero (HeroScene): a short scene that plays once. A stamp lands on the notice, the changed clauses
+   are struck and rewritten, then NIYOM's card drops to what the correction leaves standing. Each part
+   mounts when its step begins, so these run again on every replay. With reduced motion every
+   animation ends at once and the finished scene shows. ── */
 @keyframes hero-sheet {
   from {
     opacity: 0;
@@ -984,14 +985,14 @@ dialog[data-closing] .ov-top {
 }
 @keyframes hero-strike {
   to {
-    color: #a63a2a;
+    color: #9a2b1e;
     background-size: 100% 2px;
   }
 }
 .hero-del {
   color: #1c1b19;
-  background: linear-gradient(#a63a2a, #a63a2a) no-repeat 0 58% / 0% 2px;
-  animation: hero-strike 420ms var(--ease-out) 150ms forwards;
+  background: linear-gradient(#9a2b1e, #9a2b1e) no-repeat 0 58% / 0% 2px;
+  animation: hero-strike 420ms var(--ease-out) 450ms forwards;
 }
 @keyframes hero-ins {
   30% {
@@ -1008,31 +1009,16 @@ dialog[data-closing] .ov-top {
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
   opacity: 0;
-  animation: hero-ins 600ms var(--ease-spring) 420ms forwards;
-}
-/* A cosmetic edit is shown, but quietly: grey, no marker. */
-@keyframes hero-strike-soft {
-  to {
-    background-size: 100% 1px;
-  }
-}
-.hero-del-soft {
-  color: #8a847a;
-  background: linear-gradient(#8a847a, #8a847a) no-repeat 0 58% / 0% 1px;
-  animation: hero-strike-soft 420ms var(--ease-out) 150ms forwards;
-}
-.hero-ins-soft {
-  text-decoration: underline dotted #8a847a;
-  text-underline-offset: 3px;
-  animation: fade-in 500ms var(--ease-out) 420ms both;
+  animation: hero-ins 600ms var(--ease-spring) 800ms forwards;
 }
 .hero-tag {
-  animation: fade-in 400ms var(--ease-out) 300ms both;
+  animation: fade-in 400ms var(--ease-out) both;
 }
+/* The stamp lands first, with a small shake of the sheet under it. */
 @keyframes hero-stamp {
   from {
     opacity: 0;
-    transform: rotate(-7deg) scale(1.8);
+    transform: rotate(-7deg) scale(1.9);
   }
   to {
     opacity: 1;
@@ -1042,7 +1028,15 @@ dialog[data-closing] .ov-top {
 .hero-stamp {
   opacity: 0;
   transform: rotate(-7deg);
-  animation: hero-stamp 520ms var(--ease-spring) 600ms forwards;
+  animation: hero-stamp 460ms cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+@keyframes hero-thud {
+  35% {
+    transform: translateY(2px) scale(0.996);
+  }
+}
+.hero-thud {
+  animation: hero-thud 380ms var(--ease-out) 430ms;
 }
 @keyframes hero-line {
   from {
@@ -1051,18 +1045,33 @@ dialog[data-closing] .ov-top {
   }
 }
 .hero-line {
-  animation: hero-line 500ms var(--ease-spring) 650ms both;
+  animation: hero-line 500ms var(--ease-spring) both;
 }
-/* Until the visitor switches, the latest version invites a click. */
-@keyframes hero-hint {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgb(166 58 42 / 0);
+/* NIYOM's card arrives like a notification: a small drop and settle. */
+@keyframes hero-alert {
+  0% {
+    transform: translateY(-10px) scale(0.98);
   }
-  50% {
-    box-shadow: 0 0 0 4px rgb(166 58 42 / 0.22);
+  60% {
+    transform: translateY(2px) scale(1.005);
   }
 }
-.hero-hint {
-  animation: hero-hint 2.2s var(--ease-in-out) 1.4s 3;
+.hero-alert {
+  animation: hero-alert 640ms var(--ease-banner) both;
+}
+/* Depth while the hero scrolls away (desktop, where the card sits over the notice's blank foot):
+   the card, nearer the reader, moves a little faster than the notice. */
+@keyframes hero-depth {
+  to {
+    transform: translate3d(0, -24px, 0);
+  }
+}
+@supports (animation-timeline: scroll()) {
+  @media (min-width: 1024px) {
+    .hero-front {
+      animation: hero-depth linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 80vh;
+    }
+  }
 }

@@ -33,7 +33,7 @@ function Hero() {
           নিয়ম
         </span>
       </div>
-      <Container className="relative pb-16 pt-6 lg:min-h-[calc(100svh-var(--bar-h))] lg:pb-12 lg:pt-[clamp(20px,calc((100svh-var(--bar-h)-680px)/2),110px)]">
+      <Container className="relative pb-16 pt-8 sm:pt-12 lg:grid lg:min-h-[calc(100svh-var(--bar-h))] lg:content-center lg:py-10 lg:[@media(max-height:800px)]:py-4">
         <HeroScene />
       </Container>
     </Bleed>
