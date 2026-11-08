@@ -3,7 +3,8 @@
 A chronological record of how NIYOM was built and verified, phase by phase. Earlier entries describe the product as it was at the time; for the product as it stands, see [`README.md`](README.md), and for the reasoning behind it, [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md).
 
 - **Lead Engineer**: Shoumik Orgho (`orghodutta@gmail.com`)
-- **Repository**: `niyom`
+- **Repository**: [`https://github.com/argh-finds404/niyom`](https://github.com/argh-finds404/niyom)
+- **Live Production URL**: [`https://niyom-swart.vercel.app`](https://niyom-swart.vercel.app)
 - **Architecture**: Modular Monolith (Pure TypeScript Domain Engine + Zustand + Dexie IndexedDB + Next.js App Router)
 
 ## Execution Progress
@@ -318,3 +319,11 @@ A chronological record of how NIYOM was built and verified, phase by phase. Earl
   - the full flows pass against the embedded database;
   - no sideways scroll;
   - the console is clean.
+
+## Phase M — Cloud deployment & production release
+- **Date**: 2026-11-08
+- [x] Deployed live to Vercel: [`https://niyom-swart.vercel.app`](https://niyom-swart.vercel.app).
+- [x] Connected managed Neon Serverless PostgreSQL in Singapore (`ap-southeast-1`), closest to Bangladesh.
+- [x] Verified `/api/health`: `"persistence": "postgres"`, `"database": "postgres (DATABASE_URL)"`, `"durable": true`, 0 warnings.
+- [x] Verified all API routes (`/api/dossiers`, `/api/compare`, `/api/health`, `/api/reports`) live in cloud environment.
+- [x] Updated repository links and live URLs in project documentation.

@@ -8,6 +8,10 @@ NIYOM keeps every version of a notice, compares them word for word, and tells yo
 
 > Built for the Credosis Internship Program, Phase 02 (Frontend track). The four dossiers are an illustrative dataset modelled on real Bangladeshi notices; they are not official.
 
+- **Live Application:** [https://niyom-swart.vercel.app](https://niyom-swart.vercel.app)
+- **Live Health & Database Status:** [https://niyom-swart.vercel.app/api/health](https://niyom-swart.vercel.app/api/health)
+- **GitHub Repository:** [https://github.com/argh-finds404/niyom](https://github.com/argh-finds404/niyom)
+
 ## Contents
 
 - [The idea in one interaction](#the-idea-in-one-interaction)
@@ -60,6 +64,8 @@ None of these figures are typed into the interface; the readiness engine compute
 | Works offline | Changes are saved on the device and sent when the connection returns |
 
 ## A three-minute walkthrough
+
+You can follow these steps directly on the live site at [niyom-swart.vercel.app](https://niyom-swart.vercel.app), or run it locally:
 
 ```bash
 npm install
@@ -198,10 +204,14 @@ Each release was also checked in a production build in Chrome at 360, 390, 768, 
 
 ## Deploy
 
-On Vercel:
+The live production deployment runs on Vercel backed by a managed Neon Serverless PostgreSQL database in Singapore (`ap-southeast-1`):
+- **Live URL:** [https://niyom-swart.vercel.app](https://niyom-swart.vercel.app)
+- **Liveness & Persistence:** [https://niyom-swart.vercel.app/api/health](https://niyom-swart.vercel.app/api/health)
+
+To deploy your own copy on Vercel:
 
 1. Import the repository.
-2. Add a Postgres database from the Vercel Marketplace (for example Neon). This sets `DATABASE_URL`.
+2. Add a Postgres database from the Vercel Marketplace (Neon). This sets `POSTGRES_URL` or `DATABASE_URL`.
 3. Deploy, then open `/api/health`. It should report `"database": "postgres (DATABASE_URL)"` and `"durable": true`.
 
 Without a database, a serverless host keeps the ledger in memory per instance; the app still works, since each browser keeps its own copy, and `/api/health` warns about it.
