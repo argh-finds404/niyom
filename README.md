@@ -12,6 +12,20 @@ NIYOM keeps every version of a notice, compares them word for word, and tells yo
 - **Live Health & Database Status:** [https://niyom-swart.vercel.app/api/health](https://niyom-swart.vercel.app/api/health)
 - **GitHub Repository:** [https://github.com/argh-finds404/niyom](https://github.com/argh-finds404/niyom)
 
+---
+
+### Evaluation Quick Reference
+
+| Requirement | Implementation Detail |
+| :--- | :--- |
+| **📝 What was built** | **NIYOM (নিয়ম)** — A version-aware civic document readiness engine. It solves the counter-rejection problem in Bangladesh, where quiet corrigenda and addenda invalidate an applicant's prepared paperwork without warning. |
+| **🔑 Access & Credentials** | **No login or credentials required.** Public and instant access at [niyom-swart.vercel.app](https://niyom-swart.vercel.app). Evaluators receive an isolated, anonymous workspace via a secure `HttpOnly` device cookie, so multiple reviewers can test independently without shared state collisions. |
+| **⚙️ Implemented features** | Interactive Corrigendum Hero with word diffs; version-aware readiness engine; cosmetic noise filter; Bangladesh Sunday–Thursday working counter planner; 4 complete dossiers; conflicting circular resolution; crowd-verified field reports; printable readiness slip; offline sync. |
+| **💡 How key features work** | A pure TypeScript domain engine (`calculateNoticeReadiness`) compares prepared document checks against the exact wording of the active circular revision, marking affected checks *stale* while ignoring cosmetic edits, and projecting counter lead times across working days. |
+| **🎥 Video Walkthrough** | 3-minute demonstration follows the step-by-step sequence in [A three-minute walkthrough](#a-three-minute-walkthrough). |
+
+---
+
 ## Contents
 
 - [The idea in one interaction](#the-idea-in-one-interaction)
