@@ -1,4 +1,7 @@
-# NIYOM — Phase A Execution & Verification Log
+# NIYOM — Execution & Verification Log
+
+A chronological record of how NIYOM was built and verified, phase by phase. Earlier entries describe the product as it was at the time; for the product as it stands, see [`README.md`](README.md), and for the reasoning behind it, [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md).
+
 - **Lead Engineer**: Shoumik Orgho (`orghodutta@gmail.com`)
 - **Repository**: `niyom`
 - **Architecture**: Modular Monolith (Pure TypeScript Domain Engine + Zustand + Dexie IndexedDB + Next.js App Router)
@@ -256,4 +259,62 @@
   - books open every time;
   - no sideways scroll;
   - the page is still while idle (0 layouts);
+  - the console is clean.
+
+## Phase K — Hero scene, embedded Postgres, cleanup
+- **Date**: 2026-11-08
+- [x] New hero (`HeroScene`), built from the followed dossier's latest consequential change:
+  - the clause is struck and rewritten;
+  - the stamp lands;
+  - the folder flags the affected paper;
+  - it plays once, with a Replay link.
+  - The 3D stack no longer appears in the hero.
+- [x] Embedded Postgres (PGlite) is the default store without `DATABASE_URL`:
+  - same `pg` driver and SQL as production;
+  - a lock file per data folder;
+  - falls back to the JSON file if it cannot start;
+  - `/api/health` reports `database`.
+  - Verified: data survives a hard kill and restart, and a stale lock is taken over.
+- [x] PGlite moved to runtime dependencies and kept out of the bundler (`serverExternalPackages`). Production dependencies: 0 known vulnerabilities.
+- [x] Notification close button inside the banner, always visible.
+- [x] Rail labels drop parentheses and wrap in 150 px.
+- [x] The engraved page word sits above the first content block.
+- [x] Last "v1.0/v2.0" strings in the interface renamed (scenario banners, palette, memo line).
+- [x] Removed dead code:
+  - `ActionRowButton`, `Rule`, `IMPACT_LABEL`, `communityReportSchema`;
+  - the unused float animation;
+  - the `float` prop.
+- [x] Removed the design tool's `.taste-skill/` working folder (moved out of the project).
+- [x] Typecheck, lint, 77/77 tests and the build are clean.
+- [x] Browser checks at 360, 390 and 1440 px:
+  - the flows pass against the embedded database;
+  - no sideways scroll;
+  - books open;
+  - the footer fits;
+  - instant navigation;
+  - the page is still while idle (0 layouts);
+  - the console is clean.
+
+## Phase L — The hero as one interaction; submission readiness
+- **Date**: 2026-11-08
+- [x] New hero (`HeroScene`):
+  - a notice with its published versions as a switch, and dossier tabs;
+  - switching strikes and rewrites the changed clauses, slides in added rules, marks cosmetic edits, and stamps the sheet;
+  - one readiness meter for an applicant prepared for the original (100% → 57% Merit, 80% railway, 60% ICT, 50% e-passport; cosmetic Update 1 stays 100%);
+  - pointing at a clause shows the issuing office and lead time;
+  - **Try it on my checklist** applies the update to the visitor's own plan (notification, bell, nav readiness) and scrolls to the next steps.
+  - The separate status card and the hero folder were removed (they duplicated the meter); the hero fits a 1366×650 viewport above the fold and its meter never shifts.
+- [x] Domain: `checksForOriginal` and `readinessIfPreparedForOriginal` in `readiness/calculate.ts`, pinned by `tests/domain/prepared.test.ts`. No figure is typed into the interface.
+- [x] Walkthrough scenarios generalised from the Merit Grant to any dossier and version (`prepareForOriginal`, `receiveUpdate`); toasts name the dossier and version.
+- [x] Removed dead code: three unused schema type aliases, the old hero CSS, a stale comment.
+- [x] `package.json` declares Node.js 20.9 or later.
+- [x] Documentation rewritten for submission:
+  - `README.md` in reviewer order (idea, features, walkthrough, stack, architecture, API, storage, quality, deploy);
+  - `DESIGN_DECISIONS.md` reorganised by topic and brought up to date;
+  - this log retitled.
+- [x] Typecheck, lint, 81/81 tests and the build are clean.
+- [x] Browser checks at 360, 390, 1366×650 and 1440×900:
+  - every hero switch matches the engine;
+  - the full flows pass against the embedded database;
+  - no sideways scroll;
   - the console is clean.
