@@ -47,7 +47,8 @@ next-env.d.ts
 # server runtime data store
 /.data/
 
-CLAUDE_MASTER_BRIEF.md
+# internal notes & local hooks
+.githooks/
 reviews/
 AGENTS.md
 
