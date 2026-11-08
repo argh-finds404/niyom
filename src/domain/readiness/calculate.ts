@@ -112,3 +112,26 @@ export function calculateNoticeReadiness(
     items,
   };
 }
+
+/** The checks of an applicant who prepared every required paper of the original notice. */
+export function checksForOriginal(notice: Notice, updatedAt: string): ReadinessRecord[] {
+  const original = notice.versions[0];
+  return original.requirements
+    .filter((r) => r.mandatory)
+    .map((r) => ({
+      noticeId: notice.id,
+      requirementId: r.id,
+      checked: true,
+      verifiedAgainstValue: r.value,
+      verifiedAgainstVersion: original.versionNumber,
+      updatedAt,
+    }));
+}
+
+/**
+ * What a version does to an applicant who had prepared everything for the original notice.
+ * Their checks stay as they were, so a changed requirement turns stale and a new one is still to do.
+ */
+export function readinessIfPreparedForOriginal(notice: Notice, versionNumber: number, profile: ApplicantProfile): ReadinessSummary {
+  return calculateNoticeReadiness({ ...notice, activeVersionNumber: versionNumber }, profile, checksForOriginal(notice, notice.versions[0].publishedAt), []);
+}

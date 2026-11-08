@@ -13,8 +13,6 @@ export const applicantProfileSchema = z.object({
   paymentChannel: z.enum(["bkash_nagad", "card", "counter"]),
 });
 
-export type ApplicantProfileInput = z.infer<typeof applicantProfileSchema>;
-
 export const communityReportInputSchema = z.object({
   noticeId: z.string().trim().min(1, "Notice ID is required").max(100),
   requirementId: z.string().trim().min(1).max(100).optional(),
@@ -37,13 +35,6 @@ export const communityReportInputSchema = z.object({
 });
 
 export type CommunityReportInput = z.infer<typeof communityReportInputSchema>;
-
-export const communityReportSchema = communityReportInputSchema.extend({
-  id: z.string().min(1),
-  submittedAt: z.string().min(1),
-  verificationStatus: z.enum(["pending_verification", "corroborated_pattern"]),
-  corroborationCount: z.number().int().positive(),
-});
 
 export const communityReportCorroborateSchema = z.object({
   id: z.string().trim().min(1, "Report ID is required").max(100),
@@ -68,16 +59,12 @@ export const readinessRecordSchema = z.object({
   note: z.string().trim().max(240, "Note must be 240 characters or fewer").optional(),
 });
 
-export type ReadinessRecordInput = z.infer<typeof readinessRecordSchema>;
-
 export const evaluateRequestSchema = z.object({
   noticeId: z.string().trim().min(1, "Notice ID is required"),
   versionNumber: z.number().int().positive().optional(),
   profile: applicantProfileSchema.optional(),
   readinessRecords: z.array(readinessRecordSchema).max(200).optional(),
 });
-
-export type EvaluateRequestInput = z.infer<typeof evaluateRequestSchema>;
 
 export const compareQuerySchema = z.object({
   notice: z.string().trim().min(1, "Unknown or missing `notice`."),

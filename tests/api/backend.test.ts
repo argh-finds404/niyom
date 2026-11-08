@@ -69,11 +69,11 @@ describe("client store", () => {
   it("runs the walkthrough scenarios and refuses to confirm your own report", async () => {
     useNiyomStore.getState().resetDemoData();
     const store = useNiyomStore.getState();
-    store.loadScenarioV1Ready();
+    store.prepareForOriginal();
     expect(useNiyomStore.getState().demoScenarioStage).toBe("v1_ready");
     expect(useNiyomStore.getState().readinessRecords.filter((r) => r.checked)).toHaveLength(6);
 
-    store.simulateV2UpdateArrival();
+    store.receiveUpdate();
     expect(useNiyomStore.getState().notices.find((n) => n.id === "notice-merit-2026")!.activeVersionNumber).toBe(3);
 
     store.submitCommunityReport({ ...report, reportType: "service_delay", id: "rep-mine" });
