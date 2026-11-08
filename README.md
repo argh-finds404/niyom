@@ -14,8 +14,6 @@
 &nbsp;·&nbsp;
 <a href="NIYOM_EXECUTION_LOG.md">Build log</a>
 
-<sub>Built for the Credosis Internship Program, Phase 02 (Frontend track)</sub>
-
 </div>
 
 <br>
@@ -273,4 +271,4 @@ Every route uses the same engine as the app, and all input is checked with Zod b
 
 ---
 
-<sub>The notices, office names and lead times are sample data prepared for the Credosis Phase 02 demonstration. NIYOM is not connected to any institution named in it. Always confirm with the issuing office.</sub>
+<sub>The notices, office names and lead times are sample data modelled on real Bangladeshi notices. NIYOM is not connected to any institution named in it. Always confirm with the issuing office.</sub>
